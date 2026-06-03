@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>DUSKCORE - Gaming Platform</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="duskcore logo.jpg">
+
+  <!-- Tumeongeza Supabase library hapa chini -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial;
+      background: radial-gradient(circle at top, #0a0a0a, #000);
+      color: white;
+      text-align: center;
+      min-height: 100vh;
+    }
+
+    .logo {
+      width: 140px;
+      margin-top: 20px;
+      border-radius: 20px;
+      box-shadow: 0 0 20px #a020f0;
+    }
+
+    h1 {
+      color: #a020f0;
+      text-shadow: 0 0 15px #a020f0;
+      font-size: 24px;
+      margin: 20px 10px;
+    }
+
+    p {
+      width: 85%;
+      max-width: 600px;
+      margin: auto;
+      opacity: 0.85;
+      line-height: 1.6;
+      font-size: 14px;
+    }
+
+    #auth-actions {
+      margin: 25px auto;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      max-width: 400px;
+    }
+
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: 0.3s;
+      font-size: 14px;
+    }
+
+    .signup {
+      background: #a020f0;
+      color: black;
+      box-shadow: 0 0 15px #a020f0;
+    }
+
+    .login {
+      background: transparent;
+      border: 1px solid #a020f0;
+      color: #a020f0;
+    }
+
+    .btn:hover {
+      transform: scale(1.05);
+    }
+
+    .card {
+      width: 85%;
+      max-width: 450px;
+      margin: 30px auto;
+      padding: 20px;
+      border-radius: 15px;
+      background: rgba(255,255,255,0.05);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(160,32,240,0.4);
+      box-shadow: 0 0 15px rgba(160,32,240,0.3);
+      box-sizing: border-box;
+    }
+
+    .social a {
+      display: block;
+      margin: 12px;
+      color: #a020f0;
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: bold;
+    }
+
+    .social a:hover {
+      text-shadow: 0 0 10px #a020f0;
+    }
+  </style>
+</head>
+
+<body>
+
+<img src="duskcore logo.jpg" class="logo">
+
+<h1>DUSKCORE GAMING PLATFORM</h1>
+
+<p>
+DUSKCORE is a modern gaming platform that connects players worldwide.  
+Compete in tournaments, quick matches, and community battles while earning rewards through the coin system.  
+This platform is built for a futuristic competitive gaming experience.
+</p>
+
+<!-- Hapa ndipo vitufe vitakapobadilika live kama mchezaji ameshalog-in -->
+<div id="auth-actions">
+  <button class="btn signup" onclick="location.href='signup.html'">Sign Up</button>
+  <button class="btn login" onclick="location.href='login.html'">Log In</button>
+</div>
+
+<div class="card">
+  <h2>Support & Contact</h2>
+  <p>
+    If you need any help, contact us through our official platforms below:
+  </p>
+
+  <div class="social">
+    <a href="https://wa.me/255673466647?text=Hello%20admin" target="_blank">WhatsApp Support</a>
+    <a href="https://t.me/+Kv9VP81zXw1jMGY0" target="_blank">Telegram Community</a>
+    <a href="https://www.instagram.com/invites/contact/?utm_source=ig_contact_invite&utm_medium=copy_link&utm_content=nqywug9" target="_blank">Instagram Page</a>
+    <a href="https://tiktok.com/@duskcoregamers" target="_blank">TikTok Channel</a>
+  </div>
+</div>
+
+<script>
+    // Supabase Connections zilizounganishwa kwenye mfumo wako mzima
+    const supabaseUrl = "https://ldgnyehqrharqvynohla.supabase.co";
+    const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkZ255ZWhxcmhhcnF2eW5vaGxhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMzgzMDcsImV4cCI6MjA5NDYxNDMwN30.80vZuD20je-8VKDJwoy7P2mFYqY9Vcq3nMd9K-pHYBI";
+    const supabaseClient = supabase.createClient(supabaseUrl, supabaseAnonKey);
+
+    window.onload = async () => {
+        checkUserSession();
+    };
+
+    function checkUserSession() {
+        const authContainer = document.getElementById('auth-actions');
+        // Angalia kama kuna jina lililohifadhiwa kwenye kifaa hiki
+        const savedUsername = localStorage.getItem("dusk_username");
+
+        if (savedUsername) {
+            // Kama mtumiaji alishajisajili/kuingia, badilisha muonekano wa vitufe hapo juu
+            authContainer.innerHTML = `
+                <div style="width:100%">
+                    <p style="color: #a020f0; font-weight: bold; font-size: 16px; margin-bottom: 12px;">
+                        🛸 Active Session: ${savedUsername}
+                    </p>
+                    <button class="btn signup" onclick="location.href='dashboard.html'">
+                        Go to Dashboard
+                    </button>
+                    <button class="btn login" onclick="logoutUser()" style="margin-left: 8px;">
+                        Log Out
+                    </button>
+                </div>
+            `;
+        }
+    }
+
+    function logoutUser() {
+        if(confirm("Are you sure you want to log out?")) {
+            // Futa kumbukumbu zilizopo na urudishe ukurasa mwanzoni
+            localStorage.removeItem("dusk_username");
+            localStorage.removeItem("dusk_profile_pic");
+            window.location.reload();
+        }
+    }
+</script>
+
+</body>
+</html>
