@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="sw">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DUSKCORE - Leaderboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        /* CSS Yako ya asili imebaki vilevile */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background: radial-gradient(circle at center, #140620 0%, #050208 100%); color: #ffffff; min-height: 100vh; padding: 30px 15px; display: flex; flex-direction: column; align-items: center; }
+        header { text-align: center; margin-bottom: 30px; }
+        header h1 { font-size: 2.5rem; text-transform: uppercase; letter-spacing: 3px; text-shadow: 0 0 10px #a020f0, 0 0 20px #ff0055; }
+        .podium-container { display: flex; justify-content: center; align-items: flex-end; gap: 15px; width: 100%; max-width: 600px; margin-bottom: 40px; }
+        .podium-card { background: rgba(20, 10, 35, 0.7); border: 2px solid #3a1d56; border-radius: 8px; padding: 15px; text-align: center; display: flex; flex-direction: column; align-items: center; flex: 1; }
+        .podium-card.first { height: 180px; border-color: #ffd700; order: 2; }
+        .podium-card.second { height: 150px; border-color: #c0c0c0; order: 1; }
+        .podium-card.third { height: 130px; border-color: #cd7f32; order: 3; }
+        .badge { width: 30px; height: 30px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 0.9rem; margin-bottom: 10px; color: #000; }
+        .first .badge { background: #ffd700; } .second .badge { background: #c0c0c0; } .third .badge { background: #cd7f32; }
+        .podium-pts { font-size: 1.2rem; font-weight: bold; color: #00ffcc; margin-top: auto; }
+        .leaderboard-wrapper { width: 100%; max-width: 800px; background: rgba(10, 4, 15, 0.6); border: 1px solid rgba(160, 32, 240, 0.2); border-radius: 8px; overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px 20px; font-size: 0.9rem; }
+        th { background: rgba(160, 32, 240, 0.15); color: #00ffcc; text-transform: uppercase; }
+        .col-pts { text-align: right; font-weight: bold; color: #ff0055; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>TOURNAMENT LEADERBOARD</h1>
+        <p>Msimamo wa Timu na Alama</p>
+    </header>
+
+    <div class="podium-container" id="podium"></div>
+
+    <div class="leaderboard-wrapper">
+        <table>
+            <thead>
+                <tr><th>Rank</th><th>Team Name</th><th>Games</th><th style="text-align: right;">Points</th></tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
+
+    <script>
+        const supabaseUrl = "https://ldgnyehqrharqvynohla.supabase.co";
+        const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkZ255ZWhxcmhhcnF2eW5vaGxhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMzgzMDcsImV4cCI6MjA5NDYxNDMwN30.80vZuD20je-8VKDJwoy7P2mFYqY9Vcq3nMd9K-pHYBI";
+        const supabase = supabase.createClient(supabaseUrl, supabaseAnonKey);
+
+        async function loadLeaderboard() {
+            const { data, error } = await supabase
+                .from('leaderboard')
+                .select('*')
+                .order('points', { ascending: false });
+
+            if (error) { console.error(error); return; }
+
+            // 1. Render Podium (Top 3)
+            const podium = document.getElementById('podium');
+            const top3 = data.slice(0, 3);
+            const classes = ['second', 'first', 'third'];
+            
+            podium.innerHTML = top3.map((team, index) => `
+                <div class="podium-card ${classes[index]}">
+                    <div class="badge">${index + 1}</div>
+                    <div class="podium-name">${team.team_name}</div>
+                    <div class="podium-stats">${team.games_played} Games</div>
+                    <div class="podium-pts">${team.points} Pts</div>
+                </div>
+            `).join('');
+
+            // 2. Render Table
+            const tableBody = document.getElementById('tableBody');
+            tableBody.innerHTML = data.map((team, index) => `
+                <tr>
+                    <td class="col-rank">#${index + 1}</td>
+                    <td class="col-name">${team.team_name}</td>
+                    <td style="text-align:center;">${team.games_played}</td>
+                    <td class="col-pts">${team.points}</td>
+                </tr>
+            `).join('');
+        }
+
+        loadLeaderboard();
+    </script>
+</body>
+</html>

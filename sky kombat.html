@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>DUSKCORE - Sky Combat</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Unaweza kuweka icon hapa kama unayo -->
+    
+    <!-- Supabase Library SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: radial-gradient(circle at center, #001515, #000000);
+            color: #00ffff;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        /* Radar screen overlay effect */
+        .overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: repeating-linear-gradient(0deg, rgba(0,0,0,0.1) 0px, rgba(0,0,0,0.1) 1px, transparent 1px, transparent 2px);
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        .content {
+            text-align: center;
+            z-index: 10;
+            width: 90%;
+            max-width: 500px;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .icon {
+            font-size: 70px;
+            margin-bottom: 10px;
+            filter: drop-shadow(0 0 20px #00ffff);
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); }
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin: 0;
+            letter-spacing: 6px;
+            text-transform: uppercase;
+            text-shadow: 0 0 20px #00ffff;
+        }
+
+        .user-welcome {
+            text-align: center;
+            font-size: 13px;
+            color: #00ff88;
+            margin-top: 5px;
+            margin-bottom: 15px;
+            font-weight: bold;
+            font-family: monospace;
+            letter-spacing: 2px;
+            text-shadow: 0 0 8px rgba(0, 255, 136, 0.6);
+        }
+
+        .coming-soon {
+            font-size: 1.2rem;
+            color: #ff00ff;
+            background: rgba(255, 0, 255, 0.1);
+            padding: 5px 20px;
+            border: 1px solid #ff00ff;
+            display: inline-block;
+            margin-top: 10px;
+            letter-spacing: 6px;
+            font-weight: bold;
+            box-shadow: 0 0 15px rgba(255, 0, 255, 0.3);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        /* Box la habari za Supabase kwa mtindo wa Cyberpunk/Radar */
+        .sky-update-box {
+            margin-top: 25px;
+            padding: 15px;
+            background: rgba(0, 21, 21, 0.7);
+            border: 1px dashed #00ffff;
+            border-radius: 5px;
+            font-size: 0.95rem;
+            text-shadow: 0 0 5px #00ffff;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.1);
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+
+        .btn-back {
+            margin-top: 35px;
+            text-decoration: none;
+            color: #00ffff;
+            border: 1px solid #00ffff;
+            padding: 12px 30px;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            font-weight: bold;
+            transition: 0.3s;
+            display: inline-block;
+            clip-path: polygon(10% 0, 100% 0, 90% 100%, 0 100%);
+            background: rgba(0, 21, 21, 0.4);
+        }
+
+        .btn-back:hover {
+            background: #00ffff;
+            color: #000;
+            box-shadow: 0 0 20px #00ffff;
+            cursor: pointer;
+        }
+
+        .scan-line {
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background: rgba(0, 255, 255, 0.15);
+            top: 0;
+            z-index: 6;
+            pointer-events: none;
+            animation: scan 4s linear infinite;
+        }
+
+        @keyframes scan {
+            0% { top: 0%; }
+            100% { top: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="overlay"></div>
+    <div class="scan-line"></div>
+
+    <div class="content">
+        <div class="icon">✈️</div>
+        <h1>SKY COMBAT</h1>
+        <div class="user-welcome" id="skyUserWelcome">PILOT: SECURING SIGNAL...</div>
+        
+        <div class="coming-soon">COMING SOON</div>
+        
+        <!-- Hapa ndipo ujumbe kutoka Supabase utapoonekana -->
+        <div id="skyUpdate" class="sky-update-box">
+            📡 Establishing radar connection to Supabase...
+        </div>
+        
+        <br>
+        <a href="dashboard.html" class="btn-back">Return to Dashboard</a>
+    </div>
+
+<!-- SCRIPT YA SUPABASE YA KUSOMA STATUS YA GAME -->
+<script>
+// Kuunganisha Supabase Matrix Keys
+const supabaseUrl = "https://ldgnyehqrharqvynohla.supabase.co";
+const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkZ255ZWhxcmhhcnF2eW5vaGxhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMzgzMDcsImV4cCI6MjA5NDYxNDMwN30.80vZuD20je-8VKDJwoy7P2mFYqY9Vcq3nMd9K-pHYBI";
+
+const supabaseClient = supabase.createClient(supabaseUrl, supabaseAnonKey);
+let currentUser = localStorage.getItem("dusk_username");
+
+async function loadSkyStatus() {
+    // Uhakiki wa Usajili wa Pilot (Security Matrix)
+    if (!currentUser) {
+        alert("Tafadhali nenda kalogin kwanza ili kufikia rada ya Sky Combat!");
+        window.location.href = "login.html";
+        return;
+    }
+    
+    document.getElementById("skyUserWelcome").innerText = `PILOT: @${currentUser.toUpperCase()}`;
+    let updateBox = document.getElementById("skyUpdate");
+    
+    try {
+        // Tunasoma kutoka kwenye table ya 'sky_status'
+        let { data, error } = await supabaseClient
+            .from('sky_status')
+            .select('message')
+            .single(); // Tunachukua row moja tu ya taarifa kuu
+
+        if (error) throw error;
+
+        if (data && data.message) {
+            updateBox.innerHTML = `📡 STATUS: ${data.message}`;
+            // Tunahifadhi ujumbe huu kama dharura (Backup)
+            localStorage.setItem("sky_status_backup", data.message);
+        } else {
+            updateBox.innerHTML = "📡 RADAR: No incoming tactical developer signals.";
+        }
+        
+    } catch (error) {
+        console.error("Imefeli kusoma kutoka Supabase, tunatafuta signal ya ndani:", error);
+        
+        // Mfumo wa dharura wa ndani (Offline Backup)
+        let offlineMsg = localStorage.getItem("sky_status_backup");
+        if(offlineMsg) {
+            updateBox.innerHTML = `📡 RADAR (OFFLINE MEMORY): ${offlineMsg}`;
+        } else {
+            updateBox.innerHTML = "📡 RADAR: System offline. Devs are performing engine calibration.";
+        }
+    }
+}
+
+// Inapakia mara ya kwanza kabisa pindi ukurasa unapofunguka
+window.onload = () => {
+    loadSkyStatus();
+};
+
+// Inaji-refresh kila baada ya sekunde 15 kusoma mabadiliko ya maendeleo ya mchezo live
+setInterval(loadSkyStatus, 15000);
+</script>
+
+</body>
+</html>

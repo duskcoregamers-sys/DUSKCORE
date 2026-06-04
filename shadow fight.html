@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>DUSKCORE - Shadow Fight 4</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="shadow fight 2.jpeg">
+
+    <!-- Supabase Library SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: radial-gradient(circle at top, #0c0517, #000000);
+            background-attachment: fixed;
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+            box-sizing: border-box;
+            padding: 30px 0;
+        }
+
+        /* Shadow overlay effect */
+        .overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: repeating-linear-gradient(0deg, rgba(0,0,0,0.05) 0px, rgba(0,0,0,0.05) 1px, transparent 1px, transparent 2px);
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        .content {
+            text-align: center;
+            z-index: 10;
+            width: 90%;
+            max-width: 500px;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        .hero-img {
+            width: 100%;
+            max-width: 260px;
+            border-radius: 20px;
+            box-shadow: 0 0 30px rgba(160, 32, 240, 0.6);
+            margin-bottom: 20px;
+            border: 1px solid rgba(160, 32, 240, 0.3);
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-12px); }
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin: 0;
+            color: #a020f0;
+            letter-spacing: 6px;
+            text-transform: uppercase;
+            text-shadow: 0 0 20px #a020f0;
+        }
+
+        .user-welcome {
+            text-align: center;
+            font-size: 13px;
+            color: #00ff88;
+            margin-top: 5px;
+            margin-bottom: 15px;
+            font-weight: bold;
+            font-family: monospace;
+            letter-spacing: 2px;
+            text-shadow: 0 0 8px rgba(0, 255, 136, 0.6);
+        }
+
+        .coming-soon {
+            font-size: 1.2rem;
+            color: #ffffff;
+            background: rgba(160, 32, 240, 0.15);
+            padding: 8px 25px;
+            border: 1px solid #a020f0;
+            display: inline-block;
+            margin-top: 10px;
+            letter-spacing: 5px;
+            font-weight: bold;
+            box-shadow: 0 0 15px rgba(160, 32, 240, 0.3);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.03); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        /* Box jipya la ujumbe wa kivuli kutoka Supabase */
+        .shadow-update-box {
+            margin-top: 25px;
+            padding: 15px;
+            background: rgba(15, 6, 24, 0.8);
+            border: 1px dashed #a020f0;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            text-shadow: 0 0 5px #a020f0;
+            box-shadow: 0 0 15px rgba(120, 0, 200, 0.1);
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+
+        .btn-back {
+            margin-top: 35px;
+            text-decoration: none;
+            color: #a020f0;
+            border: 1px solid #a020f0;
+            padding: 12px 30px;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            font-weight: bold;
+            transition: 0.3s;
+            display: inline-block;
+            clip-path: polygon(10% 0, 100% 0, 90% 100%, 0 100%);
+            background: rgba(160, 32, 240, 0.02);
+        }
+
+        .btn-back:hover {
+            background: #a020f0;
+            color: black;
+            box-shadow: 0 0 20px #a020f0;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="overlay"></div>
+
+    <div class="content">
+        <img src="shadow fight 2.jpeg" class="hero-img" alt="Shadow Fight 4">
+        <h1>SHADOW FIGHT 4</h1>
+        <div class="user-welcome" id="shadowUserWelcome">SHADOW: SECURING ENERGY...</div>
+        
+        <div class="coming-soon">COMING SOON</div>
+        
+        <!-- Boksi la habari za Supabase -->
+        <div id="shadowUpdate" class="shadow-update-box">
+            🌑 Entering the Shadow Mind... Connecting to Supabase...
+        </div>
+        
+        <br>
+        <a href="dashboard.html" class="btn-back">Return to Dashboard</a>
+    </div>
+
+<!-- SCRIPT YA SUPABASE YA KUSOMA SHADOW FIGHT STATUS -->
+<script>
+// Kuunganisha Supabase Matrix Keys
+const supabaseUrl = "https://ldgnyehqrharqvynohla.supabase.co";
+const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkZ255ZWhxcmhhcnF2eW5vaGxhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMzgzMDcsImV4cCI6MjA5NDYxNDMwN30.80vZuD20je-8VKDJwoy7P2mFYqY9Vcq3nMd9K-pHYBI";
+
+const supabaseClient = supabase.createClient(supabaseUrl, supabaseAnonKey);
+let currentUser = localStorage.getItem("dusk_username");
+
+async function loadShadowStatus() {
+    // Uhakiki wa Usajili wa Warrior (Security Matrix)
+    if (!currentUser) {
+        alert("Tafadhali nenda kalogin kwanza ili kufikia ulingo wa Shadow Fight 4!");
+        window.location.href = "login.html";
+        return;
+    }
+    
+    document.getElementById("shadowUserWelcome").innerText = `SHADOW: @${currentUser.toUpperCase()}`;
+    let updateBox = document.getElementById("shadowUpdate");
+    
+    try {
+        // Tunasoma kutoka kwenye table ya 'shadow_status'
+        let { data, error } = await supabaseClient
+            .from('shadow_status')
+            .select('message')
+            .single(); // Tunachukua row moja tu ya ujumbe kuu
+
+        if (error) throw error;
+
+        if (data && data.message) {
+            updateBox.innerHTML = `🌑 SHADOW UPDATE: ${data.message}`;
+            // Tunahifadhi ujumbe huu kama dharura (Backup)
+            localStorage.setItem("shadow_status_backup", data.message);
+        } else {
+            updateBox.innerHTML = "🌑 SHADOW ENERGY: Silent. No signals from the Arena.";
+        }
+        
+    } catch (error) {
+        console.error("Imefeli kusoma kutoka Supabase, tunatafuta backup ya ndani:", error);
+        
+        // Mfumo wa dharura wa ndani (Offline Backup)
+        let offlineMsg = localStorage.getItem("shadow_status_backup");
+        if (offlineMsg) {
+            updateBox.innerHTML = `🌑 SHADOW UPDATE (OFFLINE MEMORY): ${offlineMsg}`;
+        } else {
+            updateBox.innerHTML = "🌑 SHADOW ENERGY: Connection lost. The Shadow Mind is mutating.";
+        }
+    }
+}
+
+// Inapakia mara ya kwanza kabisa pindi ukurasa unapofunguka
+window.onload = () => {
+    loadShadowStatus();
+};
+
+// Inaji-refresh kila baada ya sekunde 15 kusoma mabadiliko live kutoka kwa jopo la maendeleo
+setInterval(loadShadowStatus, 15000);
+</script>
+
+</body>
+</html>
