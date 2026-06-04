@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="sw">
+<head>
+    <meta charset="UTF-8">
+    <title>Tournament Board - DUSKCORE</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: Arial, sans-serif; background: #000; color: white; padding: 20px; }
+        .board-container { max-width: 800px; margin: auto; background: #0a0a0a; border: 1px solid #a020f0; border-radius: 15px; padding: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 10px; text-align: center; border-bottom: 1px solid #333; font-size: 14px; }
+        th { color: #a020f0; }
+        h2 { text-align: center; color: #a020f0; text-transform: uppercase; }
+        .back-btn { display: inline-block; padding: 10px 20px; background: #a020f0; color: white; text-decoration: none; border-radius: 5px; margin-bottom: 20px; }
+        .match-box { background: #1a1a1a; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #555; text-align: center; }
+        .btn-knockout { display: block; width: 100%; padding: 15px; background: #00c853; color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 20px; text-decoration: none; text-align: center; }
+        .gold-row { color: gold; font-weight: bold; }
+        .blue-row { color: #00bfff; font-weight: bold; }
+        .my-row { border: 2px solid #a020f0 !important; }
+        #startBtn { padding: 10px 20px; background: #a020f0; color: white; border: none; cursor: pointer; border-radius: 5px; }
+        #startBtn:disabled { background: #444; }
+        .error-msg { color: #ff5252; font-weight: bold; }
+    </style>
+</head>
+<body>
+<div class="board-container">
+    <a href="efootball.html" class="back-btn">⬅️ Back</a>
+    <h2 id="tourneyTitle">Loading...</h2>
+    <div class="match-box">
+        <h3>Next Match</h3>
+        <p id="nextMatch">Inatafuta mechi...</p>
+        <p id="timerDisplay" style="color: yellow; font-weight: bold;"></p>
+        <button id="startBtn" onclick="startMatch()" disabled>START MATCH</button>
+        <a id="knockoutBtn" href="#" class="btn-knockout" style="display:none;">ENTER KNOCKOUT STAGE</a>
+    </div>
+
+    <table>
+        <thead>
+            <tr><th>Pos</th><th>Player</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th><th>Pts</th></tr>
+        </thead>
+        <tbody id="leaderboardBody"></tbody>
+    </table>
+</div>
+
+<script>
+const sb = supabase.createClient('https://ldgnyehqrharqvynohla.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkZ255ZWhxcmhhcnF2eW5vaGxhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMzgzMDcsImV4cCI6MjA5NDYxNDMwN30.80vZuD20je-8VKDJwoy7P2mFYqY9Vcq3nMd9K-pHYBI');
+const tid = new URLSearchParams(window.location.search).get('tid');
+const currentUser = localStorage.getItem("dusk_username");
+let activeMatch = null;
+
+async function loadBoard() {
+    const statusEl = document.getElementById('nextMatch');
+    try {
+        if (!tid) throw new Error("ID ya Tournament haipatikani");
+
+        // 1. Data za Tournament
+        const { data: t, error: tErr } = await sb.from('tournaments').select('title, sub_format').eq('id', tid).single();
+        if (tErr) throw new Error("Imeshindwa kupata taarifa za tournament");
+        document.getElementById('tourneyTitle').innerText = t.title;
+        document.getElementById('knockoutBtn').href = (t.sub_format === 'double') ? `double_knock.html?tid=${tid}` : `single_knockout.html?tid=${tid}`;
+
+        // 2. Washiriki
+        const { data: participants, error: pErr } = await sb.from('tornamenents_participants').select('*').eq('tournament_id', tid);
+        if (pErr) throw new Error("Imeshindwa kupata washiriki");
+        
+        participants.sort((a, b) => (b.pts - a.pts) || (b.gd - a.gd) || (b.gf - a.gf));
+        
+        // 3. Logic ya Knockout & UI
+        const maxMatches = participants.length - 1;
+        const allFinished = participants.every(p => p.p >= maxMatches);
+        const cutoff = (t.sub_format === 'double') ? 16 : 8;
+        
+        let hasTie = false;
+        if (participants.length > cutoff) {
+            const pA = participants[cutoff - 1], pB = participants[cutoff];
+            if (pA.pts === pB.pts && pA.gd === pB.gd && pA.gf === pB.gf) hasTie = true;
+        }
+        if (allFinished && !hasTie) document.getElementById('knockoutBtn').style.display = 'block';
+
+        document.getElementById('leaderboardBody').innerHTML = participants.map((p, i) => {
+            let pos = i + 1;
+            let rowClass = pos <= (t.sub_format === 'double' ? 16 : 8) ? (pos <= 8 ? "gold-row" : "blue-row") : "";
+            return `<tr class="${rowClass} ${p.player_name === currentUser ? 'my-row' : ''}">
+                <td>${pos}</td><td>${p.player_name}</td><td>${p.p}/${maxMatches}</td><td>${p.w}</td><td>${p.d}</td><td>${p.l}</td><td>${p.gf}</td><td>${p.ga}</td><td>${p.gd}</td><td>${p.pts}</td>
+            </tr>`;
+        }).join('');
+
+        // 4. Timetable & Matches
+        const now = new Date().toISOString();
+        const { data: schedule, error: sErr } = await sb.from('timetable').select('*').eq('tournament_id', tid).gte('start_time', now).order('start_time', {ascending: true}).limit(1).single();
+        
+        if (schedule) {
+            const { data: matches, error: mErr } = await sb.from('matches').select('*').eq('match_name', schedule.match_name).or(`player1_name.eq.${currentUser},player2_name.eq.${currentUser}`);
+            if (mErr) throw new Error("Imeshindwa kupata mechi");
+            
+            if (matches && matches.length > 0) {
+                activeMatch = matches[0];
+                let opp = activeMatch.player1_name === currentUser ? activeMatch.player2_name : activeMatch.player1_name;
+                statusEl.innerText = `VS ${opp}`;
+                
+                const startTime = new Date(schedule.start_time).getTime();
+                const timer = setInterval(() => {
+                    const diff = startTime - new Date().getTime();
+                    if (diff > 0) document.getElementById('timerDisplay').innerText = `Inaanza: ${Math.floor(diff/60000)}m ${Math.floor((diff/1000)%60)}s`;
+                    else if (diff > -300000) { document.getElementById('startBtn').disabled = false; document.getElementById('timerDisplay').innerHTML = "<span style='color:lime;'>START ACTIVE!</span>"; }
+                    else { clearInterval(timer); document.getElementById('startBtn').disabled = true; document.getElementById('timerDisplay').innerText = "MUDA UMEPITA!"; }
+                }, 1000);
+            } else {
+                statusEl.innerText = "Subiri ratiba inayofuata...";
+            }
+        }
+    } catch (err) {
+        console.error("Dashboard Error:", err);
+        statusEl.innerHTML = `<span class="error-msg">⚠️ ${err.message}</span>`;
+    }
+}
+
+async function startMatch() {
+    if (!activeMatch) return;
+    const { error } = await sb.from('matches').update(activeMatch.player1_name === currentUser ? { player1_ready: true } : { player2_ready: true }).eq('id', activeMatch.id);
+    if (error) alert("Imeshindwa kusajili: " + error.message);
+    else alert("Umesajiliwa!");
+}
+
+loadBoard();
+</script>
+</body>
+</html>

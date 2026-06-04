@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="sw">
+<head>
+    <meta charset="UTF-8">
+    <title>DUSKCORE - Efootball tournaments</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="duskcore logo.jpg">
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; background: radial-gradient(circle at top, #1a0a2a, #000); color: white; padding-bottom: 80px; }
+        h1, h2 { color: #a020f0; text-align: center; text-shadow: 0 0 10px #a020f0; }
+        .category-title { background: rgba(160, 32, 240, 0.2); padding: 10px; text-align: center; border-top: 1px solid #a020f0; border-bottom: 1px solid #a020f0; margin-top: 30px; }
+        .wallet-display { background: rgba(160, 32, 240, 0.08); border: 1px solid rgba(160, 32, 240, 0.4); border-radius: 10px; padding: 10px; max-width: 400px; margin: 15px auto; display: flex; justify-content: space-around; font-weight: bold; }
+        .t-card { width: 90%; max-width: 500px; margin: 20px auto; border: 1px solid #a020f0; border-radius: 15px; background: rgba(0,0,0,0.7); box-shadow: 0 0 15px rgba(160,32,240,0.3); overflow: hidden; position: relative; }
+        .t-card img { width: 100%; height: 200px; object-fit: cover; border-bottom: 1px solid #a020f0; }
+        .t-details { padding: 15px; }
+        .badge { display: inline-block; background: #a020f0; color: white; padding: 3px 8px; border-radius: 5px; font-size: 12px; font-weight: bold; margin-bottom: 10px; }
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0; font-size: 14px; }
+        .info-box { background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; border: 1px solid rgba(160,32,240,0.3); text-align: center; }
+        .countdown { color: #ff3366; font-weight: bold; font-size: 15px; }
+        .btn-join { display: block; width: 100%; padding: 12px; text-align: center; background: #a020f0; color: white; font-weight: bold; font-size: 16px; border: none; border-radius: 8px; cursor: pointer; transition: 0.3s; }
+        .btn-join:hover { background: #8a1be0; box-shadow: 0 0 15px #a020f0; }
+        .btn-inter { background: #00c853 !important; }
+        .btn-disabled { background: #555 !important; color: #aaa !important; cursor: not-allowed; }
+        .dashboard { position: fixed; bottom: 20px; right: 20px; padding: 15px 20px; background: #a020f0; color: black; border-radius: 50px; text-decoration: none; font-weight: bold; z-index: 1000; }
+    </style>
+</head>
+<body>
+
+<h1>🏆 EFOOTBALL TOURNAMENTS</h1>
+
+<div class="wallet-display">
+    <span>🔴 Red: <span id="walletRed">...</span></span>
+    <span>🔵 Blue: <span id="walletBlue">...</span></span>
+    <span>🟣 Super: <span id="walletSuper">...</span></span>
+</div>
+
+<h2 class="category-title">🟢 ONGOING TOURNAMENTS</h2>
+<div id="ongoingContainer"></div>
+
+<h2 class="category-title">⏳ UPCOMING TOURNAMENTS</h2>
+<div id="upcomingContainer"></div>
+
+<a class="dashboard" href="dashboard.html">Dashboard</a>
+
+<script>
+const supabaseClient = supabase.createClient(
+    "https://ldgnyehqrharqvynohla.supabase.co", 
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkZ255ZWhxcmhhcnF2eW5vaGxhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMzgzMDcsImV4cCI6MjA5NDYxNDMwN30.80vZuD20je-8VKDJwoy7P2mFYqY9Vcq3nMd9K-pHYBI"
+);
+
+const dbColumns = { "Red Coins": 'red_coins', "Blue Coins": 'blue_coins', "Super Coins": 'super_coins' };
+const coinIcons = { "Red Coins": "🔴 Red", "Blue Coins": "🔵 Blue", "Super Coins": "🟣 Super" };
+let currentUser = localStorage.getItem("dusk_username");
+let activeTimers = [];
+
+async function loadLiveWallet() {
+    if (!currentUser) return;
+    let { data: profile } = await supabaseClient.from('user_profile').select('*').eq('username', currentUser).single();
+    if (profile) {
+        document.getElementById("walletRed").innerText = profile.red_coins || 0;
+        document.getElementById("walletBlue").innerText = profile.blue_coins || 0;
+        document.getElementById("walletSuper").innerText = profile.super_coins || 0;
+    }
+}
+
+async function loadTournaments() {
+    activeTimers.forEach(clearInterval);
+    activeTimers = [];
+    let ongoingHTML = "", upcomingHTML = "", now = Date.now();
+
+    let { data: tList } = await supabaseClient
+        .from('tournaments')
+        .select('*')
+        .eq('game', 'Efootball')
+        .eq('isleague', false)
+        .order('start_date', { ascending: true });
+
+    if (!tList || tList.length === 0) {
+        document.getElementById("ongoingContainer").innerHTML = "<p style='text-align:center'>Hakuna.</p>";
+        document.getElementById("upcomingContainer").innerHTML = "<p style='text-align:center'>Hakuna.</p>";
+        return;
+    }
+
+    tList.forEach((t) => {
+        let startMs = new Date(t.start_date).getTime();
+        let expireMs = new Date(t.end_date).getTime();
+        if (now > expireMs) return;
+
+        let isJoined = localStorage.getItem(`joined_${t.id}_${currentUser}`);
+        let joinedCount = t.joined || 0;
+        let maxPlayers = t.max_players || 16;
+        let isFull = joinedCount >= maxPlayers;
+        let isOngoing = now >= startMs;
+
+        let btnClass = isJoined ? "btn-join btn-inter" : (isFull ? "btn-join btn-disabled" : "btn-join");
+        let btnText = isJoined ? "INTER" : (isFull ? "❌ FULL" : "JOIN TOURNAMENT");
+        let btnAction = isJoined ? `window.location.href='board.html?tid=${t.id}'` : `joinTournament(${t.id}, ${t.fee_amount}, '${t.fee_type}', '${t.title.replace(/'/g, "\\'")}', ${joinedCount})`;
+
+        let imageSrc = t.image_url ? t.image_url : "https://via.placeholder.com/500x200?text=Efootball+Tournament";
+        
+        // REKEBISHO: Ulinzi wa toUpperCase kuzuia error
+        let gameName = (t.game || 'EFOOTBALL').toUpperCase();
+        let formatName = (t.format || 'STANDARD').toUpperCase();
+
+        let card = `
+        <div class="t-card">
+            <img src="${imageSrc}" alt="${t.title}">
+            <div class="t-details">
+                <span class="badge">${gameName} - ${formatName}</span>
+                <h3>${t.title}</h3>
+                <p>${t.description || ""}</p>
+                <div class="info-grid">
+                    <div class="info-box"><b>FEE</b><br>${t.fee_amount} ${coinIcons[t.fee_type] || t.fee_type}</div>
+                    <div class="info-box"><b>STATUS</b><br>${joinedCount}/${maxPlayers}</div>
+                </div>
+                ${!isOngoing ? `<div style="text-align:center">Starts in: <span class="countdown" id="cd_start_${t.id}">Loading...</span></div>` : `<div style="text-align:center">▶️ ONGOING</div>`}
+                <button class="${btnClass}" ${(!isJoined && isFull) ? 'disabled' : ''} onclick="${btnAction}">${btnText}</button>
+            </div>
+        </div>`;
+
+        isOngoing ? ongoingHTML += card : upcomingHTML += card;
+        if (now < startMs) startCountdown("cd_start_" + t.id, startMs);
+    });
+
+    document.getElementById("ongoingContainer").innerHTML = ongoingHTML || "<p style='text-align:center'>Hakuna.</p>";
+    document.getElementById("upcomingContainer").innerHTML = upcomingHTML || "<p style='text-align:center'>Hakuna.</p>";
+}
+
+function startCountdown(elementId, targetTime) {
+    let interval = setInterval(() => {
+        let diff = targetTime - Date.now();
+        if (diff <= 0) { clearInterval(interval); loadTournaments(); }
+        else {
+            let h = Math.floor(diff / (1000 * 60 * 60)), m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)), s = Math.floor((diff % (1000 * 60)) / 1000);
+            document.getElementById(elementId).innerText = `${h}h ${m}m ${s}s`;
+        }
+    }, 1000);
+    activeTimers.push(interval);
+}
+
+async function joinTournament(tId, fee, coinType, title, currentJoined) {
+    if (!confirm(`Join "${title}"?`)) return;
+    try {
+        const { data: authData, error: authError } = await supabaseClient.auth.signInAnonymously();
+        if (authError) throw new Error("Mfumo wa usalama umeshindwa.");
+        const userId = authData.user.id;
+
+        let { data: profile } = await supabaseClient.from('user_profile').select('*').eq('username', currentUser).single();
+        let targetCol = dbColumns[coinType];
+        if (profile[targetCol] < fee) { alert("Salio halitoshi!"); return; }
+        
+        await supabaseClient.from('user_profile').update({ [targetCol]: profile[targetCol] - fee }).eq('username', currentUser);
+        await supabaseClient.from('tournaments').update({ joined: currentJoined + 1 }).eq('id', tId);
+        
+        const { error } = await supabaseClient.from('tornamenents_participants').insert([{
+            tournament_id: tId,
+            tornament_name: title,
+            player_name: currentUser,
+            user_id: userId,
+            p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0
+        }]);
+        
+        if (error) throw error;
+        
+        localStorage.setItem(`joined_${tId}_${currentUser}`, "true");
+        alert("✅ Umefaulu kusajiliwa!");
+        location.reload();
+    } catch(err) { 
+        console.error(err);
+        alert("Imeshindikana: " + err.message); 
+    }
+}
+
+window.onload = () => { loadLiveWallet(); loadTournaments(); };
+</script>
+</body>
+</html>
