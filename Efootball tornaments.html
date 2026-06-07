@@ -23,7 +23,7 @@
         .btn-join { display: block; width: 100%; padding: 12px; text-align: center; background: #a020f0; color: white; font-weight: bold; font-size: 16px; border: none; border-radius: 8px; cursor: pointer; transition: 0.3s; }
         .btn-join:hover { background: #8a1be0; box-shadow: 0 0 15px #a020f0; }
         .btn-inter { background: #00c853 !important; }
-        .btn-disabled { background: #555 !important; color: #aaa !important; cursor: not-allowed; }
+        .btn-disabled { background: #555 !important; color: #aaa !important; cursor: not-allowed; box-shadow: none; }
         .dashboard { position: fixed; bottom: 20px; right: 20px; padding: 15px 20px; background: #a020f0; color: black; border-radius: 50px; text-decoration: none; font-weight: bold; z-index: 1000; }
     </style>
 </head>
@@ -71,12 +71,14 @@ async function loadTournaments() {
     activeTimers = [];
     let ongoingHTML = "", upcomingHTML = "", now = Date.now();
 
+    // 1. Leta Tournaments zote
     let { data: tList } = await supabaseClient
         .from('tournaments')
         .select('*')
         .eq('game', 'Efootball')
         .eq('isleague', false)
-        .order('start_date', { ascending: true });
+        .order('start_date', { ascending: true })
+        .range(0, 999);
 
     if (!tList || tList.length === 0) {
         document.getElementById("ongoingContainer").innerHTML = "<p style='text-align:center'>Hakuna.</p>";
@@ -84,24 +86,45 @@ async function loadTournaments() {
         return;
     }
 
+    // 2. Leta washiriki wote (Participants) ili kuhesabu moja kwa moja kutoka kwenye database
+    let { data: pList } = await supabaseClient
+        .from('tornamenents_participants')
+        .select('tournament_id, player_name');
+
+    // Hifadhi idadi ya waliojoin kila tournament
+    let tournamentCounts = {};
+    let userJoinedMap = {};
+
+    if (pList) {
+        pList.forEach(p => {
+            tournamentCounts[p.tournament_id] = (tournamentCounts[p.tournament_id] || 0) + 1;
+            if (p.player_name === currentUser) {
+                userJoinedMap[p.tournament_id] = true;
+            }
+        });
+    }
+
     tList.forEach((t) => {
         let startMs = new Date(t.start_date).getTime();
         let expireMs = new Date(t.end_date).getTime();
         if (now > expireMs) return;
 
-        let isJoined = localStorage.getItem(`joined_${t.id}_${currentUser}`);
-        let joinedCount = t.joined || 0;
+        // 3. Pata idadi sahihi kutoka kwenye 'tornamenents_participants' badala ya 't.joined'
+        let joinedCount = tournamentCounts[t.id] || 0;
+        let isJoined = localStorage.getItem(`joined_${t.id}_${currentUser}`) === "true" || userJoinedMap[t.id];
+        
         let maxPlayers = t.max_players || 16;
         let isFull = joinedCount >= maxPlayers;
         let isOngoing = now >= startMs;
 
         let btnClass = isJoined ? "btn-join btn-inter" : (isFull ? "btn-join btn-disabled" : "btn-join");
         let btnText = isJoined ? "INTER" : (isFull ? "❌ FULL" : "JOIN TOURNAMENT");
-        let btnAction = isJoined ? `window.location.href='board.html?tid=${t.id}'` : `joinTournament(${t.id}, ${t.fee_amount}, '${t.fee_type}', '${t.title.replace(/'/g, "\\'")}', ${joinedCount})`;
+        
+        // Tumetoa parameter ya 'joinedCount' kwenye function maana haina haja tena
+        let btnAction = isJoined ? `window.location.href='board.html?tid=${t.id}'` : `joinTournament(${t.id}, ${t.fee_amount}, '${t.fee_type}', '${t.title.replace(/'/g, "\\'")}')`;
 
         let imageSrc = t.image_url ? t.image_url : "https://via.placeholder.com/500x200?text=Efootball+Tournament";
         
-        // REKEBISHO: Ulinzi wa toUpperCase kuzuia error
         let gameName = (t.game || 'EFOOTBALL').toUpperCase();
         let formatName = (t.format || 'STANDARD').toUpperCase();
 
@@ -114,9 +137,8 @@ async function loadTournaments() {
                 <p>${t.description || ""}</p>
                 <div class="info-grid">
                     <div class="info-box"><b>FEE</b><br>${t.fee_amount} ${coinIcons[t.fee_type] || t.fee_type}</div>
-                    <div class="info-box"><b>STATUS</b><br>${joinedCount}/${maxPlayers}</div>
-                </div>
-                ${!isOngoing ? `<div style="text-align:center">Starts in: <span class="countdown" id="cd_start_${t.id}">Loading...</span></div>` : `<div style="text-align:center">▶️ ONGOING</div>`}
+                    <div class="info-box"><b>STATUS</b><br><span id="status_${t.id}">${joinedCount}/${maxPlayers}</span></div>
+                </div> ${!isOngoing ? `<div style="text-align:center">Starts in: <span class="countdown" id="cd_start_${t.id}">Loading...</span></div>` : `<div style="text-align:center">▶️ ONGOING</div>`}
                 <button class="${btnClass}" ${(!isJoined && isFull) ? 'disabled' : ''} onclick="${btnAction}">${btnText}</button>
             </div>
         </div>`;
@@ -141,7 +163,8 @@ function startCountdown(elementId, targetTime) {
     activeTimers.push(interval);
 }
 
-async function joinTournament(tId, fee, coinType, title, currentJoined) {
+// Tumebadilisha joinTournament na kuondoa logic ya ku-update 'tournaments' table
+async function joinTournament(tId, fee, coinType, title) {
     if (!confirm(`Join "${title}"?`)) return;
     try {
         const { data: authData, error: authError } = await supabaseClient.auth.signInAnonymously();
@@ -153,11 +176,12 @@ async function joinTournament(tId, fee, coinType, title, currentJoined) {
         if (profile[targetCol] < fee) { alert("Salio halitoshi!"); return; }
         
         await supabaseClient.from('user_profile').update({ [targetCol]: profile[targetCol] - fee }).eq('username', currentUser);
-        await supabaseClient.from('tournaments').update({ joined: currentJoined + 1 }).eq('id', tId);
+        
+        // TUMEONDOA update ya table ya tournaments hapa ili kuepuka error na RLS (Row Level Security)
         
         const { error } = await supabaseClient.from('tornamenents_participants').insert([{
-            tournament_id: tId,
             tornament_name: title,
+            tournament_id: tId,
             player_name: currentUser,
             user_id: userId,
             p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0
@@ -167,14 +191,42 @@ async function joinTournament(tId, fee, coinType, title, currentJoined) {
         
         localStorage.setItem(`joined_${tId}_${currentUser}`, "true");
         alert("✅ Umefaulu kusajiliwa!");
-        location.reload();
+        
+        setTimeout(() => {
+            loadLiveWallet();
+            loadTournaments();
+        }, 500);
+        
     } catch(err) { 
         console.error(err);
         alert("Imeshindikana: " + err.message); 
     }
 }
 
-window.onload = () => { loadLiveWallet(); loadTournaments(); };
+// Real-time listener sasa inasikiliza 'tornamenents_participants' ili iwape updates wengine
+function setupRealtimeListener() {
+    supabaseClient
+        .channel('participants_changes')
+        .on(
+            'postgres_changes',
+            {
+                event: '*',
+                schema: 'public',
+                table: 'tornamenents_participants' // Inasikiliza table sahihi yenye idadi
+            },
+            (payload) => {
+                console.log('Participant change detected:', payload);
+                loadTournaments();
+            }
+        )
+        .subscribe();
+}
+
+window.onload = () => { 
+    loadLiveWallet(); 
+    loadTournaments();
+    setupRealtimeListener();
+};
 </script>
 </body>
 </html>
