@@ -1,0 +1,1366 @@
+<!DOCTYPE html>
+<html lang="sw">
+<head>
+    <meta charset="UTF-8">
+    <title>Tournament Board - DUSKCORE</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: Arial, sans-serif; background: #000; color: white; padding: 20px; margin: 0; }
+        .board-container { max-width: 900px; margin: auto; background: #0a0a0a; border: 1px solid #a020f0; border-radius: 15px; padding: 20px; box-shadow: 0 0 20px rgba(160,32,240,0.2); }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #111; }
+        th, td { padding: 10px; text-align: center; border: 1px solid #333; font-size: 14px; }
+        th { color: #a020f0; background: #1a0a2a; }
+        h2, h3 { text-align: center; color: #a020f0; text-transform: uppercase; }
+        .back-btn { display: inline-block; padding: 10px 20px; background: #a020f0; color: white; text-decoration: none; border-radius: 5px; margin-bottom: 20px; font-weight: bold; }
+        .match-box { background: #1a1a1a; padding: 20px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #555; text-align: center; }
+        .gold-row { color: gold; font-weight: bold; }
+        .blue-row { color: #00bfff; font-weight: bold; }
+        .my-row { border: 2px solid #a020f0 !important; background: rgba(160,32,240,0.1); }
+        
+        /* Start Button Styles */
+        #startBtn { 
+    padding: 15px 30px; 
+    background: #a020f0; 
+    color: white; 
+    border: none; 
+    cursor: pointer; 
+    border-radius: 8px; 
+    font-weight: bold; 
+    font-size: 16px; 
+    width: 100%; 
+    transition: 0.3s;
+    animation: pulse 1.5s infinite;
+}
+
+#startBtn:hover:not(:disabled) { 
+    background: #8a1be0; 
+    box-shadow: 0 0 15px #a020f0; 
+}
+
+#startBtn:disabled { 
+    background: #333; 
+    color: #888; 
+    cursor: not-allowed; 
+    border: 1px solid #555; 
+    box-shadow: none;
+    animation: none;
+}
+
+/* Knockout Button Styles */
+.btn-knockout { 
+    padding: 15px 30px; 
+    background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+    color: #000;
+    border: 2px solid #ffd700;
+    cursor: pointer; 
+    border-radius: 8px; 
+    font-weight: bold; 
+    font-size: 16px; 
+    width: 100%; 
+    transition: 0.3s;
+    animation: knockoutPulse 1.5s infinite;
+    text-transform: uppercase;
+}
+
+.btn-knockout:hover {
+    background: linear-gradient(135deg, #ffed4e 0%, #ffd700 100%);
+    box-shadow: 0 0 25px #ffd700;
+    transform: scale(1.02);
+}
+
+.btn-knockout:disabled {
+    background: #666;
+    color: #999;
+    cursor: not-allowed;
+    animation: none;
+    box-shadow: none;
+}
+
+@keyframes knockoutPulse {
+    0%, 100% { box-shadow: 0 0 10px #ffd700; }
+    50% { box-shadow: 0 0 30px #ffd700; }
+}
+
+/* Animation ya Pulse kwa Active button */
+@keyframes pulse {
+    0%, 100% { box-shadow: 0 0 5px #a020f0; }
+    50% { box-shadow: 0 0 20px #a020f0; }
+}
+        .status-msg { color: #ffeb3b; font-size: 14px; margin-top: 10px; display: block; }
+        
+        /* Stats & Fixtures UI */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 20px 0; }
+        .stat-card { background: rgba(160,32,240,0.1); border: 1px solid #a020f0; padding: 15px; border-radius: 8px; text-align: center; }
+        .stat-card h4 { margin: 0 0 5px 0; font-size: 12px; color: #ccc; }
+        .stat-card span { font-size: 20px; font-weight: bold; color: white; }
+        
+        .wave-container { background: #111; border: 1px solid #333; border-radius: 8px; margin-bottom: 15px; padding: 15px; }
+        .wave-title { color: #00c853; border-bottom: 1px solid #333; padding-bottom: 5px; margin-top: 0; }
+        .fixture { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #222; }
+        .fixture:last-child { border-bottom: none; }
+        
+        .export-btns { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
+        .btn-export { padding: 10px 15px; background: #333; color: white; border: 1px solid #555; border-radius: 5px; cursor: pointer; }
+        .btn-export:hover { background: #444; }
+    </style>
+</head>
+<body>
+<div class="board-container">
+    <a href="efootball.html" class="back-btn">⬅️ Back to Tournaments</a>
+    <h2 id="tourneyTitle">Loading...</h2>
+    
+    <div class="match-box">
+        <h3>Your Status</h3>
+        <button id="startBtn" onclick="startMatch()" disabled>LOADING...</button>
+        <span id="statusMsg" class="status-msg">Inatafuta taarifa za tournament...</span>
+        
+        <!-- ⬇️ KUONGEZA HAPA - KNOCKOUT BUTTON ⬇️ -->
+        <button id="knockoutBtn" style="display: none; margin-top: 15px;" onclick="startKnockout()" class="btn-knockout">
+            🏆 START KNOCKOUT STAGE
+        </button>
+        <span id="knockoutMsg" class="status-msg" style="color: #00c853; display: none;">Laini zote zimekamilika! Knockout stage inakuja...</span>
+    </div>
+
+    <table>
+        <thead>
+            <tr><th>Pos</th><th>Player</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th><th>Pts</th></tr>
+        </thead>
+        <tbody id="leaderboardBody"></tbody>
+    </table>
+
+    <div id="scheduleSection" style="display: none; margin-top: 40px;">
+        <h2>Tournament Schedule (Round Robin)</h2>
+        <div class="stats-grid" id="statsGrid"></div>
+        <div id="fixturesList"></div>
+        
+        <div class="export-btns">
+            <button class="btn-export" onclick="exportCSV()">Export CSV</button>
+            <button class="btn-export" onclick="exportJSON()">Export JSON</button>
+            <button class="btn-export" onclick="window.print()">Print Schedule</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// Supabase Configuration
+const sb = supabase.createClient('https://ldgnyehqrharqvynohla.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkZ255ZWhxcmhhcnF2eW5vaGxhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMzgzMDcsImV4cCI6MjA5NDYxNDMwN30.80vZuD20je-8VKDJwoy7P2mFYqY9Vcq3nMd9K-pHYBI');
+const tid = new URLSearchParams(window.location.search).get('tid');
+const currentUser = localStorage.getItem("dusk_username");
+const currentUserId = localStorage.getItem("dusk_user_id");  // ⬅️ ADD THIS
+
+let tournamentData = null;
+let participantsData = [];
+let matchesData = [];
+
+// Formulas Validation Variables
+let statsInfo = {};
+
+// ===== MATCH WINDOW LOGIC =====
+let matchState = {
+    isActive: false,
+    timeRemaining: 300,
+    currentMatchIndex: 0,
+    userMatches: [],
+    hasJoined: false,
+    windowClosed: false,
+    timerInterval: null,
+    // ===== MATCH JUDGE LOGIC =====
+    player1Clicked: false,
+    player2Clicked: false,
+    player1JoinTime: null,
+    player2JoinTime: null
+};
+
+let roundRobinState = {
+    isComplete: false,
+    knockoutStarted: false,
+    qualifiedPlayers: [],
+    needsTiebreaker: false,
+    tieplayersCount: 0
+};
+
+let timetableState = {
+    currentWaveNumber: 1,
+    currentTimetableRow: null,
+    nextWaveTime: null,
+    countdownInterval: null,
+    timeUntilStart: 0
+};
+
+async function loadTimetable() {
+    try {
+        console.log(`📅 Loading timetable for wave ${timetableState.currentWaveNumber}...`);
+
+        // ===== FETCH TIMETABLE ROW KAMA WAVE =====
+        const waveMatchName = `Match ${timetableState.currentWaveNumber}`;
+
+        const { data: timetableRow, error } = await sb
+            .from('timetable')
+            .select('*')
+            .eq('tournament_id', tid)
+            .eq('match_name', waveMatchName)
+            .single();
+
+        if (error || !timetableRow) {
+            console.error(`❌ Hakuna timetable kwa ${waveMatchName}:`, error);
+            return false;
+        }
+
+        timetableState.currentTimetableRow = timetableRow;
+
+        // ===== PARSE START TIME =====
+        const startTime = new Date(timetableRow.start_time).getTime();
+        const now = Date.now();
+        const timeDiff = startTime - now;
+
+        console.log(`📅 ${waveMatchName} | Start time: ${new Date(startTime).toLocaleString()}`);
+        console.log(`⏱️ Time until start: ${Math.floor(timeDiff / 1000)} seconds`);
+
+        // ===== COUNTDOWN TO START TIME =====
+        if (timeDiff > 0) {
+            startCountdownToWave(timeDiff);
+        } else {
+            console.log("⚠️ Start time ilipika tayari! Activating START button window...");
+            activateStartButtonWindow();
+        }
+
+        return true;
+
+    } catch (err) {
+        console.error("❌ Error loading timetable:", err);
+        return false;
+    }
+}
+
+function startCountdownToWave(timeUntilStart) {
+    const msg = document.getElementById('statusMsg');
+    const btn = document.getElementById('startBtn');
+
+    // Hide start button during countdown
+    btn.disabled = true;
+    btn.innerText = "⏳ WAITING FOR WAVE...";
+    btn.style.background = '#333';
+
+    if (timetableState.countdownInterval) {
+        clearInterval(timetableState.countdownInterval);
+    }
+
+    let secondsRemaining = Math.floor(timeUntilStart / 1000);
+
+    timetableState.countdownInterval = setInterval(() => {
+        secondsRemaining--;
+
+        if (secondsRemaining > 0) {
+            let minutes = Math.floor(secondsRemaining / 60);
+            let seconds = secondsRemaining % 60;
+            btn.innerText = `⏳ STARTS IN ${minutes}m ${seconds}s`;
+            msg.innerText = `⏳ Wave ${timetableState.currentWaveNumber} itaanza in ${minutes}m ${seconds}s...`;
+        } else {
+            // ===== WAVE COUNTDOWN FINISHED - ACTIVATE START BUTTON =====
+            clearInterval(timetableState.countdownInterval);
+            console.log(`🎯 Wave ${timetableState.currentWaveNumber} START TIME REACHED!`);
+            activateStartButtonWindow();
+        }
+    }, 1000);
+}
+
+function activateStartButtonWindow() {
+    console.log(`🎬 ACTIVATING 5-MINUTE START BUTTON WINDOW...`);
+
+    // Reset match state for new wave
+    matchState.isActive = true;
+    matchState.timeRemaining = 300;
+    matchState.hasJoined = false;
+    matchState.windowClosed = false;
+    matchState.player1Clicked = false;
+    matchState.player2Clicked = false;
+
+    // Get current match info
+    const currentMatch = matchState.userMatches[matchState.currentMatchIndex];
+    if (currentMatch) {
+        const opponent = currentMatch.player1 === currentUser ? currentMatch.player2 : currentMatch.player1;
+        document.getElementById('statusMsg').innerText = `🟢 WAVE ${timetableState.currentWaveNumber} LIVE! vs ${opponent}`;
+    }
+
+    // Start the 5-minute window
+    initMatchWindow();
+}
+
+async function moveToNextWave() {
+    console.log(`🔄 Moving to next wave...`);
+
+    // Increment wave number
+    timetableState.currentWaveNumber++;
+
+    // Check kama kuna matches bado
+    const totalWaves = matchesData.length > 0 ? 
+        Math.max(...matchesData.map(m => m.wave || 1)) : 1;
+
+    if (timetableState.currentWaveNumber > totalWaves) {
+        console.log("✅ All waves zimekwisha!");
+        document.getElementById('statusMsg').innerText = "✅ Laini zote zimekamilika!";
+        
+        // Check round robin completion
+        setTimeout(async () => {
+            await checkRoundRobinCompletion();
+        }, 2000);
+        return;
+    }
+
+    console.log(`📅 Loading Wave ${timetableState.currentWaveNumber}...`);
+    
+    // Load next wave timetable
+    const success = await loadTimetable();
+
+    if (!success) {
+        console.error("❌ Tatizo kuload next wave");
+        document.getElementById('statusMsg').innerText = "❌ Tatizo kuload wave inayofuata";
+    }
+}
+
+
+async function checkTournamentStatus() {
+    const btn = document.getElementById('startBtn');
+    const msg = document.getElementById('statusMsg');
+    
+    const maxPlayers = tournamentData.max_players || 16;
+    const currentPlayers = participantsData.length;
+    const isFull = currentPlayers >= maxPlayers;
+    
+    const startTime = new Date(tournamentData.start_date).getTime();
+    const now = Date.now();
+    const hasStarted = now >= startTime;
+
+    if (!isFull) {
+        btn.disabled = true;
+        btn.innerText = "WAITING FOR PLAYERS";
+        msg.innerText = `Tournament haijajaa (${currentPlayers}/${maxPlayers} wameingia).`;
+        return;
+    }
+
+    if (!hasStarted) {
+        btn.disabled = true;
+        btn.innerText = "WAITING FOR COUNTDOWN";
+        
+        // Setup timer to refresh when it starts
+        const diff = startTime - now;
+        setTimeout(loadBoard, diff + 1000); 
+        
+        let h = Math.floor(diff / (1000 * 60 * 60));
+        let m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        msg.innerText = `starts in: ${h}h ${m}m. wait...`;
+        return;
+    }
+
+    // It is FULL and STARTED. Let's check if Fixtures exist.
+    btn.innerText = "START MATCH";
+    btn.disabled = false;
+    msg.innerText = "Ratiba imekamilika! Uko tayari kucheza.";
+
+    await processRoundRobinMatches();
+    
+     // 🎯 Anza match window logic
+    initMatchWindow();
+    
+    // 🏆 Checkia kama round robin imekamilika
+    const isRRComplete = await checkRoundRobinCompletion();
+}
+
+async function loadBoard() {
+    try {
+        if (!tid) throw new Error("ID ya Tournament haipatikani");
+
+        // 1. Fetch Tournament Info
+        const { data: t, error: tErr } = await sb.from('tournaments').select('*').eq('id', tid).single();
+        if (tErr) throw new Error("Imeshindwa kupata taarifa za tournament");
+        tournamentData = t;
+        document.getElementById('tourneyTitle').innerText = t.title;
+
+        // 2. Fetch Participants
+        const { data: participants, error: pErr } = await sb.from('tornamenents_participants').select('*').eq('tournament_id', tid);
+        if (pErr) throw new Error("Imeshindwa kupata washiriki");
+        participantsData = participants;
+        
+        // 3. Render Leaderboard
+        participants.sort((a, b) => (b.pts - a.pts) || (b.gd - a.gd) || (b.gf - a.gf));
+        
+        // ===== VERIFY ALL FIELDS EXIST =====
+        participants.forEach(p => {
+            console.log(`${p.player_name}: P=${p.p}, W=${p.w}, D=${p.d}, L=${p.l}, GF=${p.gf}, GA=${p.ga}, GD=${p.gd}, Pts=${p.pts}`);
+        });
+        
+        document.getElementById('leaderboardBody').innerHTML = participants.map((p, i) => {
+            let pos = i + 1;
+            let rowClass = pos <= 8 ? "gold-row" : "";
+            
+            // Safety checks - ensure no null/undefined
+            let pVal = p.p || 0;
+            let wVal = p.w || 0;
+            let dVal = p.d || 0;
+            let lVal = p.l || 0;
+            let gfVal = p.gf || 0;
+            let gaVal = p.ga || 0;
+            let gdVal = p.gd || 0;
+            let ptsVal = p.pts || 0;
+            
+            return `<tr class="${rowClass} ${p.player_name === currentUser ? 'my-row' : ''}">
+                <td>${pos}</td><td>${p.player_name}</td><td>${pVal}</td><td>${wVal}</td><td>${dVal}</td><td>${lVal}</td><td>${gfVal}</td><td>${gaVal}</td><td>${gdVal}</td><td>${ptsVal}</td>
+            </tr>`;
+        }).join('');
+
+        // 4. Check Readiness (Start Button Logic)
+        await checkTournamentStatus();  // ⬅️ ADDED AWAIT
+
+        // ===== LOAD TIMETABLE PARA WAVE 1 =====
+        setTimeout(async () => {
+            const success = await loadTimetable();
+            if (!success) {
+                console.error("❌ Tatizo kuload timetable");
+            }
+        }, 2000);
+
+        // ===== KUONGEZA: AUTO-CHECK KNOCKOUT =====
+        setInterval(async () => {
+            await checkRoundRobinCompletion();
+            
+            if (roundRobinState.needsTiebreaker) {
+                await checkPlayoffCompletion();
+            }
+        }, 10000);
+
+    } catch (err) {
+        console.error(err);
+        document.getElementById('statusMsg').innerText = `⚠️ Error: ${err.message}`;
+    }
+}
+
+// ----------------------------------------------------
+// ROUND ROBIN ALGORITHM (Circle Method) & DATABASE SYNC
+// ----------------------------------------------------
+async function processRoundRobinMatches() {
+    // Check if matches already generated in DB
+    const { data: existingMatches, error } = await sb.from('Tournaments_matches').select('*').eq('tournament_id', tid).order('wave', { ascending: true });
+    
+    if (existingMatches && existingMatches.length > 0) {
+        matchesData = existingMatches;
+        calculateStats(participantsData.length);
+        displaySchedule();
+        return;
+    }
+
+    // If no matches, GENERATE them strictly following formulas
+    let players = participantsData.map(p => p.player_name);
+    let n = players.length;
+    
+    if (n % 2 !== 0) {
+        players.push("BYE");
+        n++;
+    }
+
+    const totalWaves = n - 1;
+    const half = n / 2;
+    const newMatches = [];
+
+    // Berger Algorithm Generation
+    let currentPlayers = [...players];
+    for (let wave = 1; wave <= totalWaves; wave++) {
+        for (let i = 0; i < half; i++) {
+            let p1 = currentPlayers[i];
+            let p2 = currentPlayers[n - 1 - i];
+            
+            // Validate: No Bye vs Bye
+            if (p1 !== "BYE" && p2 !== "BYE") {
+                newMatches.push({
+                    tournament_id: tid,
+                    player1: p1,
+                    player2: p2,
+                    wave: wave,
+                    start: false
+                });
+            }
+        }
+        // Rotate (keep index 0 fixed, shift others)
+        currentPlayers.splice(1, 0, currentPlayers.pop());
+    }
+
+    // Insert into Supabase
+    const { data: insertedData, error: insertErr } = await sb.from('Tournaments_matches').insert(newMatches).select();
+    
+    if (insertErr) {
+        console.error("Failed to save matches:", insertErr);
+        document.getElementById('statusMsg').innerText = "Kuna tatizo kuokoa ratiba kwenye mfumo.";
+    } else {
+        matchesData = insertedData;
+        calculateStats(participantsData.length);
+        displaySchedule();
+    }
+}
+
+function calculateStats(N) {
+    let isOdd = N % 2 !== 0;
+    let logicalN = isOdd ? N + 1 : N;
+    
+    statsInfo = {
+        totalPlayers: N,
+        totalWaves: logicalN - 1,
+        matchesPerWave: isOdd ? (N - 1) / 2 : N / 2,
+        totalMatches: (N * (N - 1)) / 2,
+        matchesPerPlayer: N - 1
+    };
+}
+
+function displaySchedule() {
+    document.getElementById('scheduleSection').style.display = 'block';
+
+    // 1. Render Stats Grid
+    document.getElementById('statsGrid').innerHTML = `
+        <div class="stat-card"><h4>Total Players</h4><span>${statsInfo.totalPlayers}</span></div>
+        <div class="stat-card"><h4>Total Waves</h4><span>${statsInfo.totalWaves}</span></div>
+        <div class="stat-card"><h4>Matches/Wave</h4><span>${statsInfo.matchesPerWave}</span></div>
+        <div class="stat-card"><h4>Total Matches</h4><span>${statsInfo.totalMatches}</span></div>
+        <div class="stat-card"><h4>Matches/Player</h4><span>${statsInfo.matchesPerPlayer}</span></div>
+    `;
+
+    // 2. Render Waves (Fixtures)
+    const groupedByWave = {};
+    matchesData.forEach(m => {
+        if (!groupedByWave[m.wave]) groupedByWave[m.wave] = [];
+        groupedByWave[m.wave].push(m);
+    });
+
+    let fixturesHTML = "";
+    for (let wave in groupedByWave) {
+        fixturesHTML += `<div class="wave-container">
+            <h3 class="wave-title">Wave ${wave}</h3>`;
+        
+        groupedByWave[wave].forEach(match => {
+            let isMyMatch = (match.player1 === currentUser || match.player2 === currentUser);
+            let highlight = isMyMatch ? 'style="color: #a020f0; font-weight: bold;"' : '';
+            fixturesHTML += `
+                <div class="fixture" ${highlight}>
+                    <span>${match.player1}</span>
+                    <span>VS</span>
+                    <span>${match.player2}</span>
+                </div>`;
+        });
+        fixturesHTML += `</div>`;
+    }
+    
+    document.getElementById('fixturesList').innerHTML = fixturesHTML;
+}
+
+
+
+// ============================================
+// MATCH WINDOW LOGIC FUNCTIONS
+// ============================================
+
+function initMatchWindow() {
+    // Pata matches za user kwa current wave
+    matchState.userMatches = matchesData.filter(m => 
+        (m.player1 === currentUser || m.player2 === currentUser) &&
+        m.wave === timetableState.currentWaveNumber  // Match current wave
+    );
+
+    if (matchState.userMatches.length === 0) {
+        console.log(`ℹ️ No matches kwa wave ${timetableState.currentWaveNumber}`);
+        document.getElementById('statusMsg').innerText = "ℹ️ Hakuna match yako kwenye wave hii.";
+        
+        // Proceed to next wave
+        setTimeout(() => {
+            moveToNextWave();
+        }, 3000);
+        return;
+    }
+
+    matchState.currentMatchIndex = 0;
+    matchState.isActive = true;
+    matchState.hasJoined = false;
+    matchState.windowClosed = false;
+    matchState.timeRemaining = 300;
+
+    const btn = document.getElementById('startBtn');
+    btn.disabled = false;
+    btn.innerText = `⏱️ START MATCH (${matchState.timeRemaining}s)`;
+
+    startMatchTimer();
+}
+
+function startMatchTimer() {
+    const btn = document.getElementById('startBtn');
+    const msg = document.getElementById('statusMsg');
+
+    if (matchState.timerInterval) clearInterval(matchState.timerInterval);
+
+    matchState.timerInterval = setInterval(() => {
+        matchState.timeRemaining--;
+
+        if (matchState.timeRemaining > 0) {
+            btn.innerText = `⏱️ START MATCH (${matchState.timeRemaining}s)`;
+            
+            if (!matchState.hasJoined) {
+                btn.style.background = '#ff6b00';
+            }
+       } else {
+            // ===== DAKIKA 5 IMEKWISHA - JUDGE'S DECISION =====
+            matchState.windowClosed = true;
+            btn.disabled = true;
+            btn.innerText = "⛔ WINDOW CLOSED";
+            
+            clearInterval(matchState.timerInterval);
+
+            // ===== AWARD POINTS BASED ON WHO CLICKED =====
+            awardJudgePoints();
+
+            // ===== MOVE TO NEXT WAVE =====
+            setTimeout(() => {
+                moveToNextWave();
+            }, 4000);
+        }
+    }, 1000);  // ⬅️ Close setInterval
+}  // ⬅️ Close startMatchTimer function
+
+async function awardJudgePoints() {
+    const currentMatch = matchState.userMatches[matchState.currentMatchIndex];
+    const msg = document.getElementById('statusMsg');
+    
+    let player1Points = 0;
+    let player2Points = 0;
+    let resultMsg = "";
+
+    // ===== LOGIC: WHO CLICKED? =====
+    if (matchState.player1Clicked && matchState.player2Clicked) {
+        // Both clicked - play normally
+        resultMsg = "✅ Wote wabonyeza! Michezo itaanza...";
+        // Proceed to game normally
+        setTimeout(() => {
+            window.location.href = `start.html?match_id=${currentMatch.id}`;
+        }, 2000);
+        return;
+    } 
+    else if (matchState.player1Clicked && !matchState.player2Clicked) {
+        // Player 1 clicked, Player 2 delayed
+        player1Points = 3;
+        player2Points = 0;
+        resultMsg = `⚠️ ${currentMatch.player2} akachelewa! ${currentMatch.player1} kupata 3 pointi, ${currentMatch.player2} 0 pointi.`;
+    } 
+    else if (!matchState.player1Clicked && matchState.player2Clicked) {
+        // Player 2 clicked, Player 1 delayed
+        player1Points = 0;
+        player2Points = 3;
+        resultMsg = `⚠️ ${currentMatch.player1} akachelewa! ${currentMatch.player2} kupata 3 pointi, ${currentMatch.player1} 0 pointi.`;
+    } 
+    else {
+        // Both delayed - Drawer
+        player1Points = 1;
+        player2Points = 1;
+        resultMsg = "🤝 Wote wachelewa - Drawer! Kila mmoja kupata 1 point.";
+    }
+
+    msg.innerText = resultMsg;
+    console.log(resultMsg);
+
+    // ===== UPDATE DATABASE WITH JUDGE'S DECISION =====
+    const { error } = await sb
+        .from('Tournaments_matches')
+        .update({
+            player1_points: player1Points,
+            player2_points: player2Points,
+            judge_decision: true,
+            result: `${player1Points}-${player2Points}`, // Walipomia
+            completed: true,  // ⬅️ Mark as played
+            completed_at: new Date().toISOString(),  // ⬅️ Timestamp
+            status: 'finished'  // ⬅️ Status
+        })
+        .eq('id', currentMatch.id);
+
+    if (error) {
+        console.error("Tatizo kusave judge decision:", error);
+    }
+
+    // ===== UPDATE LEADERBOARD =====
+    const isPlayer1Winner = player1Points > player2Points;
+    const isPlayer2Winner = player2Points > player1Points;
+    
+    console.log(`📊 Saving Round Robin Stats for Match: ${currentMatch.player1} vs ${currentMatch.player2}`);
+    
+    const p1SaveSuccess = await updatePlayerPoints(currentMatch.player1, player1Points, isPlayer1Winner);
+    const p2SaveSuccess = await updatePlayerPoints(currentMatch.player2, player2Points, isPlayer2Winner);
+
+    if (p1SaveSuccess && p2SaveSuccess) {
+        console.log(`✅ Both players data saved successfully!`);
+    } else {
+        console.error(`❌ Error saving one or both players`);
+    }
+    
+    // ===== COUNTDOWN NEXT MATCH =====
+    setTimeout(() => {
+        countdownNextMatch();
+    }, 4000);
+}
+
+async function updatePlayerPoints(playerName, points, isWinner = false) {
+    try {
+        // ===== STEP 1: GET PARTICIPANT DATA =====
+        const { data: participant, error: fetchErr } = await sb
+            .from('tornamenents_participants')
+            .select('*')
+            .eq('tournament_id', tid)
+            .eq('player_name', playerName)
+            .single();
+
+        if (fetchErr || !participant) {
+            console.error("❌ Tatizo kupata participant:", playerName);
+            return false;
+        }
+
+        // ===== STEP 2: GET USER_ID IF NOT SAVED =====
+        let userId = participant.user_id;
+        
+        if (!userId) {
+            const { data: userProfile } = await sb
+                .from('user_profile')
+                .select('id')
+                .eq('username', playerName)
+                .single();
+            
+            if (userProfile) {
+                userId = userProfile.id;
+            }
+        }
+
+        // ===== STEP 3: CALCULATE NEW STATS =====
+        let newStats = {
+            tournament_id: tid,  // ⬅️ MUST HAVE
+            user_id: userId,      // ⬅️ MUST HAVE
+            player_name: playerName,
+            p: (participant.p || 0) + 1,  // Matches played
+            pts: (participant.pts || 0) + points,
+            updated_at: new Date().toISOString()
+        };
+
+        // ===== STEP 4: ADD WIN STATS =====
+        if (isWinner && points === 3) {
+            newStats.w = (participant.w || 0) + 1;      // Wins
+            newStats.d = (participant.d || 0);          // Keep draws same
+            newStats.l = (participant.l || 0);          // Keep losses same
+            newStats.gf = (participant.gf || 0) + 3;    // Goals for
+            newStats.ga = (participant.ga || 0) + 0;    // Goals against
+            newStats.gd = (newStats.gf - newStats.ga);  // Goal difference
+            
+            console.log(`⚡ WINNER: ${playerName}`);
+            console.log(`  W: ${newStats.w} | D: ${newStats.d} | L: ${newStats.l}`);
+            console.log(`  GF: ${newStats.gf} | GA: ${newStats.ga} | GD: ${newStats.gd}`);
+            console.log(`  P: ${newStats.p} | Pts: ${newStats.pts}`);
+        }
+        // ===== STEP 5: ADD LOSS STATS =====
+        else if (!isWinner && points === 0) {
+            newStats.w = (participant.w || 0);          // Keep wins same
+            newStats.d = (participant.d || 0);          // Keep draws same
+            newStats.l = (participant.l || 0) + 1;      // Losses
+            newStats.gf = (participant.gf || 0) + 0;    // Goals for
+            newStats.ga = (participant.ga || 0) + 3;    // Goals against
+            newStats.gd = (newStats.gf - newStats.ga);  // Goal difference
+            
+            console.log(`❌ LOSER: ${playerName}`);
+            console.log(`  W: ${newStats.w} | D: ${newStats.d} | L: ${newStats.l}`);
+            console.log(`  GF: ${newStats.gf} | GA: ${newStats.ga} | GD: ${newStats.gd}`);
+            console.log(`  P: ${newStats.p} | Pts: ${newStats.pts}`);
+        }
+        // ===== STEP 6: ADD DRAW STATS =====
+        else if (points === 1) {
+            newStats.w = (participant.w || 0);          // Keep wins same
+            newStats.d = (participant.d || 0) + 1;      // Draws
+            newStats.l = (participant.l || 0);          // Keep losses same
+            newStats.gf = (participant.gf || 0) + 1;    // Goals for
+            newStats.ga = (participant.ga || 0) + 1;    // Goals against
+            newStats.gd = (newStats.gf - newStats.ga);  // Goal difference
+            
+            console.log(`🤝 DRAWER: ${playerName}`);
+            console.log(`  W: ${newStats.w} | D: ${newStats.d} | L: ${newStats.l}`);
+            console.log(`  GF: ${newStats.gf} | GA: ${newStats.ga} | GD: ${newStats.gd}`);
+            console.log(`  P: ${newStats.p} | Pts: ${newStats.pts}`);
+        }
+
+        // ===== STEP 7: UPDATE DATABASE =====
+        const { data: updatedData, error: updateErr } = await sb
+            .from('tornamenents_participants')
+            .update(newStats)
+            .eq('id', participant.id)
+            .select();
+
+        if (updateErr) {
+            console.error("❌ Tatizo ku-update stats:", updateErr);
+            return false;
+        }
+
+        // ===== STEP 8: VERIFY DATA SAVED =====
+        console.log(`✅ ${playerName} Data Saved:`);
+        console.log(`  tournament_id: ${newStats.tournament_id}`);
+        console.log(`  user_id: ${newStats.user_id}`);
+        console.log(`  P: ${newStats.p} | W: ${newStats.w} | D: ${newStats.d} | L: ${newStats.l}`);
+        console.log(`  GF: ${newStats.gf} | GA: ${newStats.ga} | GD: ${newStats.gd}`);
+        console.log(`  PTS: ${newStats.pts}`);
+
+        return true;
+
+    } catch (err) {
+        console.error("❌ Error updating player points:", err);
+        return false;
+    }
+}
+
+function countdownNextMatch() {
+    const btn = document.getElementById('startBtn');
+    const msg = document.getElementById('statusMsg');
+
+    // Ikiwa kuna match nyingine
+    if (matchState.currentMatchIndex + 1 < matchState.userMatches.length) {
+        matchState.currentMatchIndex++;
+        matchState.timeRemaining = 300;
+        matchState.hasJoined = false;
+        matchState.windowClosed = false;
+
+        const nextMatch = matchState.userMatches[matchState.currentMatchIndex];
+        const opponent = nextMatch.player1 === currentUser ? nextMatch.player2 : nextMatch.player1;
+        
+        msg.innerText = `📋 Mchezo ujao itakuwa karibu... Mkutano unaokuja: VS ${opponent}`;
+        
+        // Kisha, baada ya 5 sekunde, window inayofunguliwa tena
+        setTimeout(() => {
+            initMatchWindow();
+        }, 5000);
+    } else {
+        btn.innerText = "✅ MATANGAZO YOTE YAMEISHIA";
+        msg.innerText = "🎉 Umemalizana na matangazo yako yote!";
+    }
+}
+
+async function checkRoundRobinCompletion() {
+    try {
+        // ===== STEP 1: Pata laini zote za ROUND ROBIN (sivyo knockout) =====
+        const { data: allMatches, error } = await sb
+            .from('Tournaments_matches')
+            .select('*')
+            .eq('tournament_id', tid)
+            .neq('stage', 'knockout'); // Exclude knockout matches
+
+        if (error) {
+            console.error("Tatizo kucheck laini:", error);
+            return false;
+        }
+
+        // ===== STEP 2: Count TOTAL ROUND ROBIN MATCHES =====
+        const totalRRMatches = allMatches.length;
+        console.log(`📊 Total Round Robin Matches: ${totalRRMatches}`);
+
+        if (totalRRMatches === 0) {
+            console.log("❌ Hakuna Round Robin matches!");
+            return false;
+        }
+
+        // ===== STEP 3: CRITICAL - Check kama laini ZOTE zimekamilika =====
+        // Laini imemaliza = ina RESULT (score) na start=true
+        const completedMatches = allMatches.filter(m => {
+            return m.start === true && m.result !== null && m.result !== '';
+        }).length;
+
+        console.log(`✅ Completed Matches: ${completedMatches}/${totalRRMatches}`);
+
+        // ===== STEP 4: BUTTON LOGIC =====
+        // BUTTON ITAONEKANA ONLY IKI: completedMatches === totalRRMatches
+        if (completedMatches === totalRRMatches && totalRRMatches > 0) {
+            console.log("🎉 ROUND ROBIN IMEKAMILIKA!");
+            roundRobinState.isComplete = true;
+            
+            // Pata players wa top 8/16 na check tiebreaker
+            await getQualifiedPlayers();
+            
+            // ===== TIEBREAKER CHECK =====
+            if (roundRobinState.needsTiebreaker) {
+                console.log("⚠️ Tiebreaker matches inakwisha, button haiwezi tokea!");
+                // Button itabaki hidden. Playoff matches zimekuwepo
+                return false;
+            } else {
+                console.log("✅ Walakini hakuna tiebreaker - safe to proceed!");
+                // Onyesha knockout button
+                showKnockoutButton();
+                return true;
+            }
+        } else {
+            console.log(`⏳ Laini bado inakwisha: ${totalRRMatches - completedMatches} matches zimebaki`);
+            // Keep button hidden hangika laini zote zimekamilika
+            hideKnockoutButton();
+            return false;
+        }
+
+    } catch (err) {
+        console.error("❌ Error checking round robin:", err);
+        return false;
+    }
+}
+
+async function getQualifiedPlayers() {
+    // Pata leaderboard na tukuchukua top players
+    const { data: leaderboard, error } = await sb
+        .from('tornamenents_participants')
+        .select('player_name, pts, gd, gf')
+        .eq('tournament_id', tid)
+        .order('pts', { ascending: false })
+        .order('gd', { ascending: false })
+        .order('gf', { ascending: false });
+
+    if (error) {
+        console.error("Tatizo kupata leaderboard:", error);
+        return;
+    }
+
+    // ===== STEP 1: Determine qualification spots =====
+    let qualificationSpots = 8; // Default single knockout
+    let tiebreakPosition = 9;
+
+    if (tournamentData.knockout_type === 'double' || tournamentData.max_players >= 16) {
+        qualificationSpots = 16;
+        tiebreakPosition = 17;
+    }
+
+    console.log(`📊 Knockout Type: ${tournamentData.knockout_type}, Spots: ${qualificationSpots}`);
+
+    // ===== STEP 2: Pata qualified players =====
+    const qualifiedPlayers = leaderboard.slice(0, qualificationSpots);
+    
+    // ===== STEP 3: CHECK TIEBREAKER =====
+    // Ikiwa player #qualificationSpots (index = qualificationSpots-1) == player #tiebreakPosition (index = tiebreakPosition-1)
+    if (leaderboard[qualificationSpots - 1] && leaderboard[tiebreakPosition - 1]) {
+        const lastQualified = leaderboard[qualificationSpots - 1];
+        const firstNotQualified = leaderboard[tiebreakPosition - 1];
+
+        // Check ikiwa wana POINTS sawa
+        if (lastQualified.pts === firstNotQualified.pts) {
+            console.log(`⚠️ TIE DETECTED: Position ${qualificationSpots} vs ${tiebreakPosition}`);
+            console.log(`Points: ${lastQualified.pts} == ${firstNotQualified.pts}`);
+
+            // Find all players wana points sawa
+            const tiedPlayers = leaderboard.filter(p => p.pts === lastQualified.pts);
+            
+            console.log(`🎯 Players with tied points: ${tiedPlayers.length}`);
+            console.log("Tied players:", tiedPlayers.map(p => p.player_name));
+
+            // Mark tiebreaker needed
+            roundRobinState.needsTiebreaker = true;
+            roundRobinState.tieplayersCount = tiedPlayers.length;
+
+            // Generate playoff matches kwa tied players
+            await generatePlayoffMatches(tiedPlayers);
+
+            return; // BUTTON HAIWEZI TOKEA! Wait for playoff
+        }
+    }
+
+    // ===== NO TIE - SAFE TO PROCEED =====
+    roundRobinState.needsTiebreaker = false;
+    roundRobinState.qualifiedPlayers = qualifiedPlayers;
+    
+    console.log("✅ NO TIEBREAKER NEEDED! Top players qualified:");
+    console.log(roundRobinState.qualifiedPlayers.map(p => `${p.player_name}: ${p.pts}pts`));
+}
+
+async function generatePlayoffMatches(tiedPlayers) {
+    console.log(`🎯 Generating playoff matches for ${tiedPlayers.length} tied players...`);
+
+    const msg = document.getElementById('statusMsg');
+    msg.innerText = `⚠️ Kuna ufanano wa points! Playoff matches inaanzwa...`;
+
+    // Sort by head-to-head, then GD, then GF (if needed)
+    let playoffMatches = [];
+
+    // Ikiwa 2 tu wanafanana → 1 match
+    if (tiedPlayers.length === 2) {
+        playoffMatches.push({
+            tournament_id: tid,
+            player1: tiedPlayers[0].player_name,
+            player2: tiedPlayers[1].player_name,
+            wave: `PLAYOFF-${tiedPlayers[0].pts}pts`,
+            stage: 'playoff',
+            start: false,
+            playoff_group: 'tie-breaker'
+        });
+    }
+    // Ikiwa 3+ wanafanana → Round robin kati yao
+    else if (tiedPlayers.length > 2) {
+        for (let i = 0; i < tiedPlayers.length; i++) {
+            for (let j = i + 1; j < tiedPlayers.length; j++) {
+                playoffMatches.push({
+                    tournament_id: tid,
+                    player1: tiedPlayers[i].player_name,
+                    player2: tiedPlayers[j].player_name,
+                    wave: `PLAYOFF-${tiedPlayers[0].pts}pts`,
+                    stage: 'playoff',
+                    start: false,
+                    playoff_group: 'tie-breaker'
+                });
+            }
+        }
+    }
+
+    // Insert playoff matches
+    const { data: insertedPlayoffs, error } = await sb
+        .from('Tournaments_matches')
+        .insert(playoffMatches)
+        .select();
+
+    if (error) {
+        console.error("❌ Tatizo kugenerate playoff:", error);
+        msg.innerText = `❌ Tatizo kuanzisha playoff: ${error.message}`;
+        return;
+    }
+
+    console.log("✅ Playoff matches generated:", insertedPlayoffs);
+    msg.innerText = `📋 Playoff matches ready! Wacheza na kisha Knockout itakuja...`;
+    
+    // ===== KUONGEZA: CREATE TIMETABLE ENTRY FOR PLAYOFF =====
+    await createPlayoffTimetable(tiedPlayers.length);
+    
+    // Hide knockout button - it will show baada ya playoff kumaliza
+    hideKnockoutButton();
+}
+
+async function createPlayoffTimetable(numPlayers) {
+    try {
+        // Calculate playoff wave number
+        const totalWaves = matchesData.length > 0 ? 
+            Math.max(...matchesData.map(m => m.wave || 1)) : 1;
+        
+        const playoffWaveNumber = totalWaves + 1;
+        
+        // Create timetable entry with extra time buffer
+        // Add 30 minutes from now for playoff to start
+        const playoffStartTime = new Date(Date.now() + (30 * 60 * 1000)).toISOString();
+
+        const { data: timetableEntry, error } = await sb
+            .from('timetable')
+            .insert({
+                tournament_id: tid,
+                match_name: `Match ${playoffWaveNumber}`,  // Treat as normal wave
+                start_time: playoffStartTime,
+                wave_type: 'playoff',
+                created_at: new Date().toISOString()
+            })
+            .select();
+
+        if (error) {
+            console.error("❌ Tatizo kuadd playoff timetable:", error);
+            return false;
+        }
+
+        console.log(`✅ Playoff Timetable Entry Created:`);
+        console.log(`  Wave: ${playoffWaveNumber}`);
+        console.log(`  Start Time: ${new Date(playoffStartTime).toLocaleString()}`);
+        
+        // ===== ACTIVATE PLAYOFF WAVE IN TIMETABLE =====
+        timetableState.currentWaveNumber = playoffWaveNumber;
+        await loadTimetable();  // Load playoff timetable like normal wave
+
+        return true;
+
+    } catch (err) {
+        console.error("❌ Error creating playoff timetable:", err);
+        return false;
+    }
+}
+
+async function checkPlayoffCompletion() {
+    // Checkia kama playoff matches zimekamilika
+    const { data: playoffMatches, error } = await sb
+        .from('Tournaments_matches')
+        .select('*')
+        .eq('tournament_id', tid)
+        .eq('stage', 'playoff');
+
+    if (error || !playoffMatches || playoffMatches.length === 0) {
+        return false;
+    }
+
+    // Count completed playoff matches
+    const completedPlayoffs = playoffMatches.filter(m => 
+        m.result !== null && m.result !== ''
+    ).length;
+
+    console.log(`Playoff matches: ${completedPlayoffs}/${playoffMatches.length}`);
+
+    // Ikiwa playooffs zimekamilika
+    if (completedPlayoffs === playoffMatches.length) {
+        console.log("✅ Playoff matches zimekamilika! Updating qualified players...");
+        
+        // Re-fetch leaderboard
+        const { data: leaderboard } = await sb
+            .from('tornamenents_participants')
+            .select('player_name, pts, gd, gf')
+            .eq('tournament_id', tid)
+            .order('pts', { ascending: false })
+            .order('gd', { ascending: false })
+            .order('gf', { ascending: false });
+
+        // Set qualified players (recount)
+        let qualificationSpots = 8;
+        if (tournamentData.knockout_type === 'double' || tournamentData.max_players >= 16) {
+            qualificationSpots = 16;
+        }
+
+        roundRobinState.qualifiedPlayers = leaderboard.slice(0, qualificationSpots);
+        roundRobinState.needsTiebreaker = false;
+
+        // ===== MOVE TO KNOCKOUT AFTER PLAYOFF =====
+        console.log("🎯 Playoff complete! Preparing for Knockout...");
+        
+        // Check if there are more waves or go straight to knockout
+        const totalWaves = matchesData.length > 0 ? 
+            Math.max(...matchesData.map(m => m.wave || 1)) : 1;
+
+        const playoffWaveNumber = timetableState.currentWaveNumber;
+
+        if (playoffWaveNumber >= totalWaves) {
+            // No more regular waves after playoff
+            showKnockoutButton();
+        } else {
+            // There are more waves, move to next
+            await moveToNextWave();
+        }
+        
+        return true;
+    }
+
+    return false;
+}
+
+function showKnockoutButton() {
+    const knockoutBtn = document.getElementById('knockoutBtn');
+    const knockoutMsg = document.getElementById('knockoutMsg');
+    const startBtn = document.getElementById('startBtn');
+
+    // Hide start button, show knockout button
+    startBtn.style.display = 'none';
+    knockoutBtn.style.display = 'block';
+    knockoutMsg.style.display = 'block';
+
+    document.getElementById('statusMsg').innerText = "✅ Round Robin imekamilika!";
+    knockoutMsg.innerText = `🏆 Laini zote zimekamilika! Top ${roundRobinState.qualifiedPlayers.length} players wanatayari kwa Knockout...`;
+}
+
+function hideKnockoutButton() {
+    const knockoutBtn = document.getElementById('knockoutBtn');
+    const knockoutMsg = document.getElementById('knockoutMsg');
+    const startBtn = document.getElementById('startBtn');
+
+    // Hide knockout button, show start button
+    knockoutBtn.style.display = 'none';
+    knockoutMsg.style.display = 'none';
+    startBtn.style.display = 'block';
+}
+
+async function startKnockout() {
+    const knockoutBtn = document.getElementById('knockoutBtn');
+    const knockoutMsg = document.getElementById('knockoutMsg');
+
+    if (!roundRobinState.isComplete) {
+        alert("❌ Round Robin haijamkamilika bado!");
+        return;
+    }
+
+    if (roundRobinState.knockoutStarted) {
+        alert("⚠️ Knockout stage tayari imeanza!");
+        return;
+    }
+
+    // ===== STEP 1: GET SUBFORMAT FROM TOURNAMENT DATA =====
+    const subformat = tournamentData.subformat || 'single knockout';
+    console.log(`🎯 Tournament Subformat: ${subformat}`);
+
+    // Confirm action
+    const confirmed = confirm(
+        `🏆 Anza Knockout Stage?\n\n` +
+        `Players qualified: ${roundRobinState.qualifiedPlayers.length}\n` +
+        `Format: ${subformat}\n` +
+        `Hii haiwezi kurudishwa!`
+    );
+
+    if (!confirmed) return;
+
+    // Disable button kwa sababu action ni final
+    knockoutBtn.disabled = true;
+    knockoutBtn.innerText = "⏳ KUANZISHA KNOCKOUT...";
+
+    try {
+        // 1. Generate knockout brackets
+        await generateKnockoutBrackets();
+
+        // 2. Update tournament status
+        await sb
+            .from('tournaments')
+            .update({ stage: 'knockout' })
+            .eq('id', tid);
+
+        // 3. Update state
+        roundRobinState.knockoutStarted = true;
+
+        // 4. Update UI
+        knockoutBtn.innerText = "✅ KNOCKOUT IMEANZA!";
+        knockoutMsg.innerText = "🎉 Knockout stage imeanza! Kubwa zaidi inakuja...";
+
+        // ===== STEP 2: REDIRECT BASED ON SUBFORMAT =====
+        let knockoutPage = 'single_knockout.html';  // Default
+
+        if (subformat.toLowerCase() === 'double knockout') {
+            knockoutPage = 'double_knockout.html';
+        } else if (subformat.toLowerCase() === 'single knockout') {
+            knockoutPage = 'single_knockout.html';
+        }
+
+        console.log(`📄 Redirecting to: ${knockoutPage}`);
+
+        // 5. Baada ya 2 sekunde, enda kwenye knockout page
+        setTimeout(() => {
+            window.location.href = `${knockoutPage}?tid=${tid}`;
+        }, 2000);
+
+    } catch (err) {
+        console.error("Tatizo kuanza knockout:", err);
+        knockoutBtn.disabled = false;
+        knockoutBtn.innerText = "🏆 START KNOCKOUT STAGE";
+        alert("❌ Tatizo kuanza Knockout: " + err.message);
+    }
+}
+
+async function generateKnockoutBrackets() {
+    // Semi-finals & Finals generation
+    const qualified = roundRobinState.qualifiedPlayers;
+    const knockoutMatches = [];
+
+    // Pair players: 1 vs 8, 2 vs 7, 3 vs 6, 4 vs 5
+    const semifinals = [
+        { player1: qualified[0].player_name, player2: qualified[7].player_name, round: 1 },
+        { player1: qualified[1].player_name, player2: qualified[6].player_name, round: 1 },
+        { player1: qualified[2].player_name, player2: qualified[5].player_name, round: 1 },
+        { player1: qualified[3].player_name, player2: qualified[4].player_name, round: 1 }
+    ];
+
+    // Insert semifinals kwenye table
+    for (let match of semifinals) {
+        const { error } = await sb.from('Tournaments_matches').insert({
+            tournament_id: tid,
+            player1: match.player1,
+            player2: match.player2,
+            wave: `SF-${match.round}`,
+            stage: 'knockout',
+            start: false
+        });
+
+        if (error) throw new Error("Tatizo kuanzisha brackets: " + error.message);
+    }
+
+    console.log("Knockout brackets ready:", semifinals);
+}
+
+// ----------------------------------------------------
+// EXPORT FUNCTIONS
+// ----------------------------------------------------
+function exportCSV() {
+    let csvContent = "data:text/csv;charset=utf-8,Wave,Player 1,Player 2\n";
+    matchesData.forEach(m => {
+        csvContent += `${m.wave},${m.player1},${m.player2}\n`;
+    });
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Tournament_${tid}_Schedule.csv`);
+    document.body.appendChild(link);
+    link.click();
+}
+
+function exportJSON() {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(matchesData, null, 2));
+    const link = document.createElement("a");
+    link.setAttribute("href", dataStr);
+    link.setAttribute("download", `Tournament_${tid}_Schedule.json`);
+    document.body.appendChild(link);
+    link.click();
+}
+
+async function startMatch() {
+    if (!matchState.isActive || matchState.windowClosed) {
+        alert("❌ Muda wa kujoin umekwisha kwa mchezo huu.");
+        return;
+    }
+
+    const currentMatch = matchState.userMatches[matchState.currentMatchIndex];
+    const opponent = currentMatch.player1 === currentUser ? currentMatch.player2 : currentMatch.player1;
+    const isPlayer1 = currentMatch.player1 === currentUser;
+
+    // ===== STEP 1: RECORD PLAYER CLICK TIME =====
+    const clickTime = Date.now();
+    
+    if (isPlayer1) {
+        matchState.player1Clicked = true;
+        matchState.player1JoinTime = clickTime;
+    } else {
+        matchState.player2Clicked = true;
+        matchState.player2JoinTime = clickTime;
+    }
+
+    console.log(`⏱️ ${currentUser} clicked START button`);
+
+    // ===== STEP 2: CHECK IF BOTH PLAYERS JOINED =====
+    const bothJoined = matchState.player1Clicked && matchState.player2Clicked;
+
+    if (bothJoined) {
+        // Both clicked - proceed normally
+        await proceedToGame(currentMatch, opponent, 'both');
+    } else {
+        // Only one clicked - wait or proceed with points logic
+        const msg = document.getElementById('statusMsg');
+        msg.innerText = `⏳ Karibu kuanza... inayangoja ${opponent}...`;
+    }
+}
+
+async function proceedToGame(match, opponent, scenario) {
+    const btn = document.getElementById('startBtn');
+    const msg = document.getElementById('statusMsg');
+
+    // 1. Badilisha 'start' kuwa TRUE kwenye database
+    const { error } = await sb
+        .from('Tournaments_matches')
+        .update({ start: true })
+        .eq('id', match.id);
+
+    if (error) {
+        alert("❌ Tatizo kuanza mchezo: " + error.message);
+        return;
+    }
+
+    // 2. Update button state
+    matchState.hasJoined = true;
+    btn.disabled = true;
+    btn.style.background = '#00c853';
+    btn.innerText = `✅ UMEJOIN | VS ${opponent}`;
+    msg.innerText = `✅ Umejoin mchezo! Karibu ${opponent}...`;
+
+    // 3. Clear timer
+    if (matchState.timerInterval) clearInterval(matchState.timerInterval);
+
+    // 4. Check round robin
+    setTimeout(async () => {
+        await checkRoundRobinCompletion();
+    }, 5000);
+
+    // 5. Redirect kwenye game page
+    setTimeout(() => {
+        window.location.href = `game.html?match_id=${match.id}`;
+    }, 2000);
+}
+
+// Initialize Board
+window.onload = loadBoard;
+</script>
+</body>
+</html>

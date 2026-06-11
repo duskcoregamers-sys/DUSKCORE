@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="sw">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DUSKCORE — Champions</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;600&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --gold:   #ffd700;
+            --silver: #c0c0c0;
+            --bronze: #cd7f32;
+            --cyan:   #00ffcc;
+            --purple: #a020f0;
+            --red:    #ff0055;
+            --bg:     #050208;
+            --card:   #0f081a;
+        }
+
+        body {
+            background: var(--bg);
+            color: #fff;
+            min-height: 100vh;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* ── AMBIENT BACKGROUND ── */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 60% 40% at 20% 10%, rgba(160,32,240,0.12) 0%, transparent 70%),
+                radial-gradient(ellipse 50% 35% at 80% 90%, rgba(255,0,85,0.08) 0%, transparent 70%),
+                radial-gradient(ellipse 40% 50% at 50% 50%, rgba(0,255,204,0.04) 0%, transparent 80%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ── PARTICLES ── */
+        .particles {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+        .particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            border-radius: 50%;
+            animation: float linear infinite;
+            opacity: 0;
+        }
+        @keyframes float {
+            0%   { transform: translateY(100vh) translateX(0); opacity: 0; }
+            10%  { opacity: 1; }
+            90%  { opacity: 0.6; }
+            100% { transform: translateY(-10vh) translateX(30px); opacity: 0; }
+        }
+
+        /* ── HEADER ── */
+        .header {
+            position: relative;
+            z-index: 10;
+            text-align: center;
+            padding: 50px 20px 30px;
+            width: 100%;
+        }
+
+        .crown-icon {
+            font-size: 3.5rem;
+            display: block;
+            margin-bottom: 10px;
+            animation: crownPulse 3s ease-in-out infinite;
+            filter: drop-shadow(0 0 20px var(--gold));
+        }
+        @keyframes crownPulse {
+            0%, 100% { transform: scale(1) rotate(-3deg); filter: drop-shadow(0 0 15px var(--gold)); }
+            50%       { transform: scale(1.08) rotate(3deg); filter: drop-shadow(0 0 35px var(--gold)); }
+        }
+
+        .header-title {
+            font-family: 'Orbitron', monospace;
+            font-size: clamp(1.6rem, 6vw, 3.2rem);
+            font-weight: 900;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            color: #fff;
+            text-shadow:
+                0 0 10px var(--gold),
+                0 0 30px rgba(255,215,0,0.4),
+                0 0 60px rgba(160,32,240,0.3);
+            line-height: 1.1;
+        }
+
+        .header-sub {
+            font-family: 'Orbitron', monospace;
+            font-size: 0.7rem;
+            letter-spacing: 3px;
+            color: var(--cyan);
+            text-transform: uppercase;
+            margin-top: 8px;
+            opacity: 0.8;
+        }
+
+        .tournament-name {
+            display: inline-block;
+            margin-top: 14px;
+            padding: 5px 18px;
+            border: 1px solid rgba(255,215,0,0.3);
+            border-radius: 20px;
+            font-size: 0.75rem;
+            color: var(--gold);
+            letter-spacing: 2px;
+            background: rgba(255,215,0,0.05);
+            font-family: 'Orbitron', monospace;
+        }
+
+        /* ── DIVIDER ── */
+        .divider {
+            width: 100%;
+            max-width: 500px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--purple), var(--cyan), var(--purple), transparent);
+            margin: 10px auto 40px;
+            position: relative;
+            z-index: 10;
+        }
+
+        /* ── PODIUM SECTION ── */
+        .podium-section {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            max-width: 700px;
+            padding: 0 20px;
+        }
+
+        /* ── TOP 3 PODIUM ── */
+        .podium-row {
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 40px;
+        }
+
+        .podium-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            transition: transform 0.3s ease;
+        }
+        .podium-card:hover { transform: translateY(-6px); }
+
+        /* 1st place — center, tallest */
+        .podium-card.rank-1 { order: 2; }
+        .podium-card.rank-2 { order: 1; }
+        .podium-card.rank-3 { order: 3; }
+
+        .player-avatar {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Orbitron', monospace;
+            font-size: 1.6rem;
+            font-weight: 900;
+            margin-bottom: 10px;
+            position: relative;
+        }
+        .rank-1 .player-avatar {
+            width: 90px;
+            height: 90px;
+            font-size: 2rem;
+            background: radial-gradient(circle, #ffe066 0%, #b8860b 100%);
+            border: 3px solid var(--gold);
+            box-shadow: 0 0 25px rgba(255,215,0,0.6), 0 0 60px rgba(255,215,0,0.2);
+            color: #3a2a00;
+        }
+        .rank-2 .player-avatar {
+            background: radial-gradient(circle, #e8e8e8 0%, #888 100%);
+            border: 2px solid var(--silver);
+            box-shadow: 0 0 15px rgba(192,192,192,0.4);
+            color: #1a1a1a;
+        }
+        .rank-3 .player-avatar {
+            background: radial-gradient(circle, #e8a060 0%, #7a3b10 100%);
+            border: 2px solid var(--bronze);
+            box-shadow: 0 0 15px rgba(205,127,50,0.4);
+            color: #1a0800;
+        }
+
+        /* Crown on 1st */
+        .rank-1 .player-avatar::before {
+            content: '👑';
+            position: absolute;
+            top: -22px;
+            font-size: 1.2rem;
+            animation: crownBob 2s ease-in-out infinite;
+        }
+        @keyframes crownBob {
+            0%, 100% { transform: translateY(0) rotate(-5deg); }
+            50%       { transform: translateY(-4px) rotate(5deg); }
+        }
+
+        .player-name-display {
+            font-family: 'Orbitron', monospace;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 6px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 120px;
+        }
+        .rank-1 .player-name-display {
+            font-size: 0.85rem;
+            color: var(--gold);
+            text-shadow: 0 0 10px rgba(255,215,0,0.5);
+            max-width: 150px;
+        }
+        .rank-2 .player-name-display { font-size: 0.75rem; color: var(--silver); }
+        .rank-3 .player-name-display { font-size: 0.75rem; color: var(--bronze); }
+
+        /* Podium block */
+        .podium-block {
+            width: 100%;
+            border-radius: 6px 6px 0 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Orbitron', monospace;
+            font-weight: 900;
+        }
+        .rank-1 .podium-block {
+            height: 100px;
+            width: 140px;
+            background: linear-gradient(180deg, rgba(255,215,0,0.25) 0%, rgba(255,215,0,0.08) 100%);
+            border: 1px solid rgba(255,215,0,0.4);
+            border-bottom: none;
+            font-size: 2.5rem;
+            color: var(--gold);
+            box-shadow: 0 -10px 30px rgba(255,215,0,0.15), inset 0 1px 0 rgba(255,215,0,0.3);
+        }
+        .rank-2 .podium-block {
+            height: 70px;
+            width: 115px;
+            background: linear-gradient(180deg, rgba(192,192,192,0.2) 0%, rgba(192,192,192,0.05) 100%);
+            border: 1px solid rgba(192,192,192,0.3);
+            border-bottom: none;
+            font-size: 2rem;
+            color: var(--silver);
+        }
+        .rank-3 .podium-block {
+            height: 50px;
+            width: 115px;
+            background: linear-gradient(180deg, rgba(205,127,50,0.2) 0%, rgba(205,127,50,0.05) 100%);
+            border: 1px solid rgba(205,127,50,0.3);
+            border-bottom: none;
+            font-size: 2rem;
+            color: var(--bronze);
+        }
+
+        /* ── RANK 4 & 5 ── */
+        .lower-ranks {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 50px;
+            flex-wrap: wrap;
+        }
+
+        .lower-card {
+            background: var(--card);
+            border: 1px solid rgba(160,32,240,0.25);
+            border-radius: 8px;
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            min-width: 200px;
+            max-width: 260px;
+            flex: 1;
+            transition: border-color 0.3s, transform 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        .lower-card::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            width: 3px;
+            background: var(--purple);
+        }
+        .lower-card:hover {
+            border-color: rgba(160,32,240,0.5);
+            transform: translateY(-3px);
+        }
+
+        .lower-rank-badge {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.4rem;
+            font-weight: 900;
+            color: rgba(255,255,255,0.2);
+            min-width: 32px;
+        }
+
+        .lower-player-info { flex: 1; overflow: hidden; }
+        .lower-rank-label {
+            font-size: 0.6rem;
+            color: var(--purple);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-family: 'Orbitron', monospace;
+            margin-bottom: 3px;
+        }
+        .lower-player-name {
+            font-family: 'Orbitron', monospace;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #ccc;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .lower-medal { font-size: 1.3rem; }
+
+        /* ── LOADING STATE ── */
+        .loading-wrap {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            padding: 60px 20px;
+        }
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(160,32,240,0.2);
+            border-top-color: var(--purple);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text {
+            font-family: 'Orbitron', monospace;
+            font-size: 0.75rem;
+            color: var(--cyan);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        /* ── ERROR STATE ── */
+        .error-wrap {
+            position: relative;
+            z-index: 10;
+            text-align: center;
+            padding: 40px 20px;
+        }
+        .error-icon { font-size: 3rem; margin-bottom: 12px; }
+        .error-text {
+            font-family: 'Orbitron', monospace;
+            font-size: 0.8rem;
+            color: var(--red);
+            letter-spacing: 1px;
+        }
+
+        /* ── EMPTY SLOT ── */
+        .empty-slot {
+            color: rgba(255,255,255,0.2) !important;
+            font-style: italic;
+        }
+
+        /* ── FOOTER ── */
+        .footer {
+            position: relative;
+            z-index: 10;
+            text-align: center;
+            padding: 30px 20px 40px;
+            width: 100%;
+        }
+        .footer-brand {
+            font-family: 'Orbitron', monospace;
+            font-size: 0.65rem;
+            letter-spacing: 3px;
+            color: rgba(255,255,255,0.15);
+            text-transform: uppercase;
+        }
+        .footer-line {
+            width: 60px;
+            height: 1px;
+            background: rgba(160,32,240,0.3);
+            margin: 10px auto 8px;
+        }
+
+        /* ── ENTRANCE ANIMATIONS ── */
+        .animate-in {
+            opacity: 0;
+            transform: translateY(30px);
+            animation: slideUp 0.6s ease forwards;
+        }
+        @keyframes slideUp {
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .delay-1 { animation-delay: 0.1s; }
+        .delay-2 { animation-delay: 0.25s; }
+        .delay-3 { animation-delay: 0.4s; }
+        .delay-4 { animation-delay: 0.55s; }
+        .delay-5 { animation-delay: 0.7s; }
+        .delay-6 { animation-delay: 0.85s; }
+
+        /* ── CONFETTI BURST ── */
+        .confetti-piece {
+            position: fixed;
+            width: 8px;
+            height: 8px;
+            border-radius: 2px;
+            pointer-events: none;
+            z-index: 100;
+            animation: confettiFall linear forwards;
+        }
+        @keyframes confettiFall {
+            0%   { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+        }
+
+        @media (max-width: 480px) {
+            .podium-row { gap: 6px; }
+            .rank-1 .podium-block { width: 110px; height: 80px; }
+            .rank-2 .podium-block, .rank-3 .podium-block { width: 90px; }
+            .rank-1 .player-avatar { width: 72px; height: 72px; }
+            .lower-card { min-width: 150px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="particles" id="particles"></div>
+
+    <!-- LOADING -->
+    <div class="loading-wrap" id="loadingState">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Inapakia Mabingwa...</div>
+    </div>
+
+    <!-- MAIN CONTENT (hidden until loaded) -->
+    <div id="mainContent" style="display:none; width:100%; display:none; flex-direction:column; align-items:center;">
+
+        <div class="header animate-in delay-1">
+            <span class="crown-icon">👑</span>
+            <div class="header-title">HALL OF CHAMPIONS</div>
+            <div class="header-sub">DUSKCORE Tournament</div>
+            <div class="tournament-name" id="tournamentLabel">LOADING...</div>
+        </div>
+
+        <div class="divider animate-in delay-2"></div>
+
+        <div class="podium-section">
+
+            <!-- TOP 3 PODIUM -->
+            <div class="podium-row">
+
+                <!-- 2nd Place -->
+                <div class="podium-card rank-2 animate-in delay-3">
+                    <div class="player-avatar" id="avatar2">?</div>
+                    <div class="player-name-display" id="name2">—</div>
+                    <div class="podium-block">2</div>
+                </div>
+
+                <!-- 1st Place -->
+                <div class="podium-card rank-1 animate-in delay-2">
+                    <div class="player-avatar" id="avatar1">?</div>
+                    <div class="player-name-display" id="name1">—</div>
+                    <div class="podium-block">1</div>
+                </div>
+
+                <!-- 3rd Place -->
+                <div class="podium-card rank-3 animate-in delay-4">
+                    <div class="player-avatar" id="avatar3">?</div>
+                    <div class="player-name-display" id="name3">—</div>
+                    <div class="podium-block">3</div>
+                </div>
+
+            </div>
+
+            <!-- RANK 4 & 5 -->
+            <div class="lower-ranks">
+
+                <div class="lower-card animate-in delay-5">
+                    <div class="lower-rank-badge">4</div>
+                    <div class="lower-player-info">
+                        <div class="lower-rank-label">4th Place</div>
+                        <div class="lower-player-name" id="name4">—</div>
+                    </div>
+                    <div class="lower-medal">🎖️</div>
+                </div>
+
+                <div class="lower-card animate-in delay-6">
+                    <div class="lower-rank-badge">5</div>
+                    <div class="lower-player-info">
+                        <div class="lower-rank-label">5th Place</div>
+                        <div class="lower-player-name" id="name5">—</div>
+                    </div>
+                    <div class="lower-medal">🎖️</div>
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="footer animate-in delay-6">
+            <div class="footer-line"></div>
+            <div class="footer-brand">DUSKCORE · TOURNAMENT SERIES</div>
+        </div>
+
+    </div>
+
+    <!-- ERROR STATE -->
+    <div id="errorState" style="display:none;" class="error-wrap">
+        <div class="error-icon">⚠️</div>
+        <div class="error-text">Hakuna Data ya Mabingwa</div>
+    </div>
+
+    <script>
+    // ── SUPABASE ──
+    const sb = supabase.createClient(
+        'https://ldgnyehqrharqvynohla.supabase.co',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkZ255ZWhxcmhhcnF2eW5vaGxhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMzgzMDcsImV4cCI6MjA5NDYxNDMwN30.80vZuD20je-8VKDJwoy7P2mFYqY9Vcq3nMd9K-pHYBI'
+    );
+
+    const params  = new URLSearchParams(window.location.search);
+    const tid     = params.get('tid');
+
+    // ── READ TOP 5 FROM URL PARAMS (both single & double send p1–p5) ──
+    const top5 = [
+        params.get('p1') || '',
+        params.get('p2') || '',
+        params.get('p3') || '',
+        params.get('p4') || '',
+        params.get('p5') || ''
+    ];
+
+    // ── PARTICLES ──
+    function spawnParticles() {
+        const wrap = document.getElementById('particles');
+        const colors = ['#ffd700','#a020f0','#00ffcc','#ff0055','#ffffff'];
+        for (let i = 0; i < 35; i++) {
+            const p = document.createElement('div');
+            p.className = 'particle';
+            p.style.left = Math.random() * 100 + 'vw';
+            p.style.background = colors[Math.floor(Math.random() * colors.length)];
+            p.style.animationDuration = (6 + Math.random() * 12) + 's';
+            p.style.animationDelay    = (Math.random() * 10) + 's';
+            p.style.width = p.style.height = (1 + Math.random() * 2) + 'px';
+            wrap.appendChild(p);
+        }
+    }
+
+    // ── CONFETTI ──
+    function launchConfetti() {
+        const colors = ['#ffd700','#ff0055','#00ffcc','#a020f0','#ffffff','#ff6600'];
+        for (let i = 0; i < 80; i++) {
+            const c = document.createElement('div');
+            c.className = 'confetti-piece';
+            c.style.left = (10 + Math.random() * 80) + 'vw';
+            c.style.background = colors[Math.floor(Math.random() * colors.length)];
+            c.style.animationDuration = (2 + Math.random() * 3) + 's';
+            c.style.animationDelay    = (Math.random() * 2) + 's';
+            c.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+            document.body.appendChild(c);
+            setTimeout(() => c.remove(), 5500);
+        }
+    }
+
+    // ── GET INITIAL FROM NAME ──
+    function getInitial(name) {
+        if (!name) return '?';
+        return name.trim().charAt(0).toUpperCase();
+    }
+
+    // ── RENDER PLAYER ──
+    function renderPlayer(rankNum, name) {
+        const isEmpty = !name || name.trim() === '';
+
+        if (rankNum <= 3) {
+            const avatarEl = document.getElementById('avatar' + rankNum);
+            const nameEl   = document.getElementById('name'   + rankNum);
+            avatarEl.textContent = isEmpty ? '?' : getInitial(name);
+            nameEl.textContent   = isEmpty ? 'TBD' : name;
+            if (isEmpty) nameEl.classList.add('empty-slot');
+        } else {
+            const nameEl = document.getElementById('name' + rankNum);
+            nameEl.textContent = isEmpty ? 'TBD' : name;
+            if (isEmpty) nameEl.classList.add('empty-slot');
+        }
+    }
+
+    // ── LOAD TOURNAMENT NAME ──
+    async function loadTournamentName() {
+        if (!tid) {
+            document.getElementById('tournamentLabel').textContent = 'DUSKCORE';
+            return;
+        }
+        try {
+            const { data } = await sb
+                .from('tournaments')
+                .select('title')
+                .eq('id', tid)
+                .single();
+            document.getElementById('tournamentLabel').textContent =
+                data?.title ? data.title.toUpperCase() : 'DUSKCORE';
+        } catch {
+            document.getElementById('tournamentLabel').textContent = 'DUSKCORE';
+        }
+    }
+
+    // ── MAIN INIT ──
+    async function init() {
+        spawnParticles();
+
+        // Check if we have any top5 data from URL
+        const hasData = top5.some(p => p && p.trim() !== '');
+
+        if (!hasData) {
+            // Try loading from Supabase tournament_results table
+            if (tid) {
+                try {
+                    const { data } = await sb
+                        .from('tournament_results')
+                        .select('*')
+                        .eq('tournament_id', tid)
+                        .single();
+
+                    if (data) {
+                        top5[0] = data.rank1 || '';
+                        top5[1] = data.rank2 || '';
+                        top5[2] = data.rank3 || '';
+                        top5[3] = data.rank4 || '';
+                        top5[4] = data.rank5 || '';
+                    }
+                } catch (e) {
+                    console.error('No results in DB:', e);
+                }
+            }
+        }
+
+        // Check again after DB load
+        const finalHasData = top5.some(p => p && p.trim() !== '');
+
+        if (!finalHasData) {
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('errorState').style.display = 'block';
+            return;
+        }
+
+        // Render all 5 players
+        top5.forEach((name, i) => renderPlayer(i + 1, name));
+
+        // Load tournament name
+        await loadTournamentName();
+
+        // Show content
+        document.getElementById('loadingState').style.display = 'none';
+        const main = document.getElementById('mainContent');
+        main.style.display = 'flex';
+
+        // Confetti after short delay
+        setTimeout(launchConfetti, 800);
+    }
+
+    init();
+    </script>
+</body>
+</html>
