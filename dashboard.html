@@ -75,31 +75,28 @@
         const supabaseClient = supabase.createClient(supabaseUrl, supabaseAnonKey);
 
         async function loadWallet() {
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    if (!session) { window.location.href = "login.html"; return; }
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session) { window.location.href = "login.html"; return; }
 
-    const { data: profile, error } = await supabaseClient
-        .from('user_profile')
-        .select('username, red_coins, blue_coins, super_coins')
-        .eq('id', session.user.id)
-        .single();
+            try {
+                let { data: profile, error } = await supabaseClient
+                    .from('user_profile') 
+                    .select('username, red_coins, blue_coins, super_coins')
+                    .eq('id', session.user.id)
+                    .single();
 
-    if (error) {
-        console.error("Error:", error.message);
-        document.getElementById("userWelcome").innerText = "Hitilafu: " + error.message;
-        return;
-    }
-
-    if (profile) {
-        document.getElementById("userWelcome").innerText = `Mchezaji: @${profile.username.toUpperCase()}`;
-        document.getElementById("red").innerText = profile.red_coins ?? 0;
-        document.getElementById("blue").innerText = profile.blue_coins ?? 0;
-        document.getElementById("super").innerText = profile.super_coins ?? 0;
-    } else {
-        document.getElementById("userWelcome").innerText = "Profile haikupatikana";
-    }
-}
-window.onload = loadWallet;
+                if (error) throw error;
+                if (profile) {
+                    document.getElementById("userWelcome").innerText = `Mchezaji: @${profile.username.toUpperCase()}`;
+                    document.getElementById("red").innerText = profile.red_coins ?? 0;
+                    document.getElementById("blue").innerText = profile.blue_coins ?? 0;
+                    document.getElementById("super").innerText = profile.super_coins ?? 0;
+                }
+            } catch (error) {
+                console.error("Cloud fetch failed:", error);
+            }
+        }
+        window.onload = loadWallet;
     </script>
 </body>
 </html>
