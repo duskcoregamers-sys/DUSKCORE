@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>DUSKCORE - Coin Deposit</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="duskcore logo.jpg">
+
+  <!-- Tumeongeza Supabase library hapa chini -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: radial-gradient(circle at top, #0a0a0a, #000);
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px 0;
+    }
+
+    .box {
+      width: 90%;
+      max-width: 400px;
+      padding: 25px;
+      border-radius: 15px;
+      background: rgba(255,255,255,0.05);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(160,32,240,0.4);
+      box-shadow: 0 0 20px rgba(160,32,240,0.4);
+      text-align: center;
+      box-sizing: border-box;
+    }
+
+    h2, h3 {
+      color: #a020f0;
+      text-shadow: 0 0 10px #a020f0;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0;
+      border-radius: 8px;
+      border: 1px solid #333;
+      outline: none;
+      background: #111;
+      color: white;
+      box-sizing: border-box;
+    }
+
+    input:focus, select:focus {
+      border-color: #a020f0;
+    }
+
+    label {
+      display: block;
+      text-align: left;
+      margin-top: 8px;
+      font-size: 14px;
+    }
+
+    .red { color: #ff3333; }
+    .blue { color: dodgerblue; }
+    .purple { color: #a020f0; }
+
+    .result {
+      margin-top: 10px;
+      font-size: 16px;
+      font-weight: bold;
+      color: #00ffff;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      background: #a020f0;
+      border: none;
+      border-radius: 10px;
+      font-weight: bold;
+      cursor: pointer;
+      color: black;
+      box-shadow: 0 0 15px rgba(160,32,240,0.5);
+      transition: 0.3s;
+      box-sizing: border-box;
+    }
+
+    button:hover {
+      transform: scale(1.02);
+      background: #bd40ff;
+    }
+
+    .dash-btn {
+      background: transparent;
+      border: 1px solid #a020f0;
+      color: #a020f0;
+      box-shadow: none;
+      margin-bottom: 15px;
+    }
+
+    .dash-btn:hover {
+      background: #a020f0;
+      color: black;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="box">
+
+  <h2>DUSKCORE DEPOSIT</h2>
+
+  <button class="dash-btn" onclick="location.href='dashboard.html'">
+    ⬅ Back to Dashboard
+  </button>
+
+  <label>Your DUSKCODE / Username:</label>
+  <input type="text" id="user" placeholder="Enter DUSKCODE">
+
+  <label class="red">Red Coin (1 = 200 TSH)</label>
+  <input type="number" id="red" placeholder="Red Amount" value="0" oninput="calculate()">
+
+  <label class="blue">Blue Coin (1 = 500 TSH)</label>
+  <input type="number" id="blue" placeholder="Blue Amount" value="0" oninput="calculate()">
+
+  <label class="purple">Super Coin (1 = 1000 TSH)</label>
+  <input type="number" id="super" placeholder="Super Amount" value="0" oninput="calculate()">
+
+  <button onclick="calculate()">Calculate Total</button>
+
+  <div class="result" id="result">Total: 0 TSH</div>
+
+  <button id="depositBtn" onclick="deposit()" style="background: #25D366; color: white; box-shadow: 0 0 15px #25D366;">
+    🚀 Proceed with Deposit
+  </button>
+
+  <hr style="border: 0.5px solid #333; margin: 25px 0;">
+
+  <h3>Coin Conversion</h3>
+  
+  <label>From:</label>
+  <select id="fromCoin">
+    <option value="red">Red Coin 🔴</option>
+    <option value="blue">Blue Coin 🔵</option>
+    <option value="super">Super Coin 🟣</option>
+  </select>
+
+  <label>To:</label>
+  <select id="toCoin">
+    <option value="blue">Blue Coin 🔵</option>
+    <option value="super">Super Coin 🟣</option>
+    <option value="red">Red Coin 🔴</option>
+  </select>
+
+  <label>Amount to Convert:</label>
+  <input type="number" id="convertAmount" placeholder="Enter amount of coins" min="1">
+  <button id="convertBtn" onclick="convertCoin()" style="background: #00ffff; color: black; box-shadow: 0 0 10px #00ffff;">🔄 Convert Coins</button>
+
+</div>
+
+<script>
+// Supabase Credentials zilizounganishwa kwenye mfumo wako mzima
+const supabaseUrl = "https://ldgnyehqrharqvynohla.supabase.co";
+const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkZ255ZWhxcmhhcnF2eW5vaGxhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMzgzMDcsImV4cCI6MjA5NDYxNDMwN30.80vZuD20je-8VKDJwoy7P2mFYqY9Vcq3nMd9K-pHYBI";
+const supabaseClient = supabase.createClient(supabaseUrl, supabaseAnonKey);
+
+// Thamani za sarafu kulingana na muundo wako
+const coinRates = {
+    red: 200,
+    blue: 500,
+    super: 1000
+};
+
+window.onload = () => {
+    // Jaza jina la mchezaji aliyelogin kiotomatiki kutoka localStorage
+    let savedUser = localStorage.getItem("dusk_username");
+    if(savedUser) {
+        document.getElementById('user').value = savedUser;
+    }
+};
+
+function getStorage(key){ return JSON.parse(localStorage.getItem(key)) || []; }
+function saveStorage(key, data){ localStorage.setItem(key, JSON.stringify(data)); }
+
+function calculate(){
+  let red = Number(document.getElementById("red").value || 0);
+  let blue = Number(document.getElementById("blue").value || 0);
+  let sup = Number(document.getElementById("super").value || 0);
+  
+  let total = (red * coinRates.red) + (blue * coinRates.blue) + (sup * coinRates.super);
+  document.getElementById("result").innerText = "Total Deposit: " + total + " TSH";
+  return total;
+}
+
+async function deposit(){
+  let user = document.getElementById("user").value.trim();
+  let red = Number(document.getElementById("red").value || 0);
+  let blue = Number(document.getElementById("blue").value || 0);
+  let sup = Number(document.getElementById("super").value || 0);
+  let total = calculate();
+  let btn = document.getElementById("depositBtn");
+
+  if(user === ""){
+    alert("Tafadhali weka DUSKCODE yako!");
+    return;
+  }
+  if(total <= 0){
+    alert("Tafadhali weka kiasi cha coins (angalau coin 1).");
+    return;
+  }
+
+  btn.innerText = "Processing Request...";
+  btn.disabled = true;
+
+  // --- 1. TUMA SIGNAL KWA LOCALSTORAGE (KWA AJILI YA PANEL YA NDANI) ---
+  let deposits = getStorage("dusk_deposits");
+  let newReq = {
+    id: Date.now(),
+    code: user,
+    amount: total,
+    coins: { red: red, blue: blue, super: sup },
+    time: new Date().toLocaleString()
+  };
+  deposits.push(newReq);
+  saveStorage("dusk_deposits", deposits);
+
+  // --- 2. TUMA TAARIFA SUPABASE KWENYE TABLE YA DEPOSIT ---
+try {
+    await supabaseClient
+  .from('deposit')
+  .insert([{
+      username: user,
+      red: red,
+      blue: blue,
+      super: sup,
+      total_tsh: total,
+      status: 'pending',
+      created_at: new Date().toISOString()
+  }]);
+    
+    console.log("Deposit imesave kwenye database");
+} catch(e) {
+    console.log("Supabase deposit save error: " + e.message);
+}
+
+  // --- 3. PELEKA USER WHATSAPP ---
+  let msg = `Hello admin, nataka kudeposit:%0A%0A` +
+            `👤 User: ${user}%0A` +
+            `🔴 Red: ${red}%0A` +
+            `🔵 Blue: ${blue}%0A` +
+            `🟣 Super: ${sup}%0A` +
+            `💰 Jumla: ${total} TSH%0A%0A` +
+            `Nimeshatuma request kwenye panel ya DUSKCORE.`;
+
+  let whatsappURL = `https://wa.me/255673466647?text=${msg}`;
+  
+  alert("Ombi lako limesajiliwa kwenye mfumo! Unapelekwa WhatsApp kukamilisha malipo.");
+  window.location.href = whatsappURL;
+}
+
+// Mfumo kamili wa Kubadilisha Coins Live kwenye Database ya Supabase
+
+async function convertCoin(){
+  let fromCoin = document.getElementById("fromCoin").value;
+  let toCoin = document.getElementById("toCoin").value;
+  let amountToConvert = Math.floor(Number(document.getElementById("convertAmount").value || 0));
+  let user = document.getElementById("user").value.trim();
+  let btn = document.getElementById("convertBtn");
+
+  if(!user) { alert("Ingiza jina lako!"); return; }
+  if(fromCoin === toCoin) { alert("Huwezi kubadilisha aina ile ile!"); return; }
+  if(amountToConvert <= 0) { alert("Weka kiasi halali!"); return; }
+
+  btn.innerText = "Converting...";
+  btn.disabled = true;
+
+  try {
+      const coinRates = { red: 200, blue: 500, super: 1000 };
+
+      // Get current balance
+      let { data: profile } = await supabaseClient
+          .from('user_profile')
+          .select('red_coins, blue_coins, super_coins')
+          .eq('username', user)
+          .single();
+
+      if(!profile) throw new Error("User hajapatikana!");
+
+      // Check balance
+      const coinMap = { red: 'red_coins', blue: 'blue_coins', super: 'super_coins' };
+      let currentBalance = Number(profile[coinMap[fromCoin]] || 0);
+      
+      if(currentBalance < amountToConvert) {
+          throw new Error(`Salio hafifu! Wako: ${currentBalance}, Unataka: ${amountToConvert}`);
+      }
+
+      // Calculate
+      let tshValue = amountToConvert * coinRates[fromCoin];
+      let targetCoins = Math.floor(tshValue / coinRates[toCoin]);
+
+      if(targetCoins <= 0) throw new Error("Kiasi ni kidogo!");
+
+      console.log("Calling SQL function...");
+      console.log("From:", amountToConvert, fromCoin);
+      console.log("To:", targetCoins, toCoin);
+
+      // Call SQL function
+      const { data: result, error: funcError } = await supabaseClient
+          .rpc('perform_coin_conversion', {
+              p_username: user,
+              p_from_coin: fromCoin,
+              p_from_amount: amountToConvert,
+              p_to_coin: toCoin,
+              p_to_amount: targetCoins
+          });
+
+      if(funcError) {
+          console.error("Function error:", funcError);
+          throw new Error(funcError.message);
+      }
+
+      console.log("Conversion result:", result);
+
+      alert(`✅ SUCCESS!\n\n` +
+            `${amountToConvert} 🔴 ${fromCoin.toUpperCase()} → ${targetCoins} 🟣 ${toCoin.toUpperCase()}\n\n` +
+            `New Balance:\n` +
+            `🔴 Red: ${result.red_coins}\n` +
+            `🔵 Blue: ${result.blue_coins}\n` +
+            `🟣 Super: ${result.super_coins}`);
+
+      document.getElementById("convertAmount").value = "";
+
+  } catch(err) {
+      console.error("Error:", err);
+      alert("❌ ERROR: " + err.message);
+  } finally {
+      btn.innerText = "🔄 Convert Coins";
+      btn.disabled = false;
+  }
+}
+</script>
+
+</body>
+</html>
