@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>DUSKCORE - Internal Transfer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="duskcore logo.jpg">
+
+  <!-- Tumeongeza Supabase library hapa chini -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: radial-gradient(circle, #0a0a0a, #000);
+      color: white;
+      text-align: center;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 20px 0;
+    }
+
+    h2 {
+      color: #a020f0;
+      text-shadow: 0 0 10px #a020f0;
+      margin-top: 0;
+    }
+
+    .box {
+      width: 90%;
+      max-width: 360px;
+      margin: 15px auto;
+      padding: 20px;
+      border-radius: 15px;
+      border: 1px solid #a020f0;
+      box-shadow: 0 0 15px #a020f0;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(10px);
+      box-sizing: border-box;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 12px;
+      margin: 8px 0;
+      border-radius: 8px;
+      border: 1px solid #333;
+      background: #111;
+      color: white;
+      outline: none;
+      box-sizing: border-box;
+    }
+
+    input:focus, select:focus {
+      border-color: #a020f0;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      background: #a020f0;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: bold;
+      color: black;
+      transition: 0.3s;
+      box-sizing: border-box;
+    }
+
+    button:hover {
+      transform: scale(1.02);
+      background: #bd40ff;
+    }
+
+    .wallet {
+      margin-bottom: 15px;
+      font-weight: bold;
+      background: rgba(160,32,240,0.1);
+      padding: 12px;
+      border-radius: 10px;
+      display: inline-block;
+    }
+
+    .code-box {
+      padding: 12px;
+      border: 1px solid #a020f0;
+      border-radius: 10px;
+      color: #00ffff;
+      margin: 12px 0;
+      font-weight: bold;
+      font-size: 18px;
+      letter-spacing: 1px;
+    }
+
+    /* DASHBOARD BUTTON */
+    .dashboard {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 12px 18px;
+      background: #a020f0;
+      color: black;
+      border-radius: 30px;
+      text-decoration: none;
+      font-weight: bold;
+      box-shadow: 0 0 20px #a020f0;
+      transition: 0.3s;
+      z-index: 1000;
+    }
+
+    .dashboard:hover {
+      transform: scale(1.1);
+    }
+  </style>
+</head>
+
+<body>
+
+<h2>🔄 Internal Transfer</h2>
+
+<!-- WALLET LIVE BALANCES -->
+<div class="wallet">
+  🔴 <span id="red">...</span> |
+  🔵 <span id="blue">...</span> |
+  🟣 <span id="super">...</span>
+</div>
+
+<!-- SEND COIN -->
+<div class="box">
+  <h3>Send Coins</h3>
+
+  <input type="text" id="receiverCode" placeholder="Enter Receiver DUSKCODE">
+
+  <select id="coinType">
+    <option value="red">Red Coin 🔴</option>
+    <option value="blue">Blue Coin 🔵</option>
+    <option value="super">Super Coin 🟣</option>
+  </select>
+
+  <input type="number" id="amount" placeholder="Enter amount" min="1">
+
+  <button id="sendBtn" onclick="sendCoin()">Send Coins</button>
+</div>
+
+<!-- RECEIVE COIN -->
+<div class="box">
+  <h3>Receive Coins</h3>
+  <p style="font-size: 14px; color: #bbb; margin-bottom: 5px;">Mpe mtu msimbo huu ili akutumie coins:</p>
+  <div class="code-box" id="myCode">Loading...</div>
+  <button onclick="copyCode()">📋 Copy My Code</button>
+</div>
+
+<!-- DASHBOARD BUTTON -->
+<a class="dashboard" href="dashboard.html">Dashboard</a>
+
+<script>
+// Supabase Credentials zilizounganishwa kwenye mfumo wako mzima
+const supabaseUrl = "https://ldgnyehqrharqvynohla.supabase.co";
+const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkZ255ZWhxcmhhcnF2eW5vaGxhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMzgzMDcsImV4cCI6MjA5NDYxNDMwN30.80vZuD20je-8VKDJwoy7P2mFYqY9Vcq3nMd9K-pHYBI";
+const supabaseClient = supabase.createClient(supabaseUrl, supabaseAnonKey);
+
+// Ramani ya majina ya columns za sarafu kwenye database yako
+const dbColumns = {
+    red: 'red_coins',
+    blue: 'blue_coins',
+    super: 'super_coins'
+};
+
+let currentUser = localStorage.getItem("dusk_username");
+
+// Inapakia salio halisi la mtumiaji kutoka database ya Supabase
+async function loadLiveWallet() {
+  if(currentUser) {
+    // Onyesha DUSKCODE ya mtumiaji kama msimbo wake wa kupokelea pesa
+    document.getElementById("myCode").innerText = currentUser;
+    
+    try {
+      let { data: profile, error } = await supabaseClient
+        .from('user_profile')
+        .select('red_coins, blue_coins, super_coins')
+        .eq('username', currentUser)
+        .single();
+        
+      if(error) throw error;
+
+      if(profile) {
+        document.getElementById("red").innerText = profile.red_coins || 0;
+        document.getElementById("blue").innerText = profile.blue_coins || 0;
+        document.getElementById("super").innerText = profile.super_coins || 0;
+      }
+    } catch(err) {
+      console.error("Imeshindwa kuvuta salio halisi: ", err.message);
+      document.getElementById("red").innerText = "0";
+      document.getElementById("blue").innerText = "0";
+      document.getElementById("super").innerText = "0";
+    }
+  } else {
+    alert("Tafadhali login kwanza ili uweze kutumia sehemu hii!");
+    window.location.href = "login.html";
+  }
+}
+
+/* COPY CODE */
+function copyCode(){
+  let code = document.getElementById("myCode").innerText;
+  if(code === "Loading..." || code === "") return;
+  
+  navigator.clipboard.writeText(code);
+  alert("Msimbo wako umecopiwa: " + code);
+}
+
+/* SEND COIN LIVE LOGIC */
+/* SEND COIN LIVE LOGIC - FIXED */
+async function sendCoin(){
+  let receiverInput = document.getElementById("receiverCode").value.trim();
+  let type = document.getElementById("coinType").value;
+  let amount = Math.floor(Number(document.getElementById("amount").value || 0));
+  let btn = document.getElementById("sendBtn");
+
+  if(!currentUser) {
+    alert("Umesha-logout au kikao kimeisha. Tafadhali login tena.");
+    return;
+  }
+  if(receiverInput === ""){
+    alert("Tafadhali weka DUSKCODE ya mtu unayemtumia!");
+    return;
+  }
+  if(receiverInput.toLowerCase() === currentUser.toLowerCase()) {
+    alert("Huwezi kujitumia coins wewe mwenyewe!");
+    return;
+  }
+  if(amount <= 0){
+    alert("Weka kiasi halali cha kuanzia coin 1!");
+    return;
+  }
+
+  btn.innerText = "Verifying & Sending...";
+  btn.disabled = true;
+
+  try {
+    // 1. UHAKIKI WA RECEIVER KWANZA (ili kupatikana exact username case)
+    let { data: receiverProfile, error: recErr } = await supabaseClient
+        .from('user_profile')
+        .select('username, red_coins, blue_coins, super_coins')
+        .ilike('username', receiverInput)  // FIXED: ilike = case-insensitive
+        .single();
+
+    if (recErr || !receiverProfile) {
+        alert("⚠️ Mpokeaji hajapatikana! Hakikisha umeandika DUSKCODE/Username yake kwa usahihi kabisa.");
+        btn.innerText = "Send Coins";
+        btn.disabled = false;
+        return;
+    }
+
+    // 2. UHAKIKI WA SENDER (kutumia exact username kutoka Supabase)
+    let { data: senderProfile, error: senderErr } = await supabaseClient
+        .from('user_profile')
+        .select('red_coins, blue_coins, super_coins')
+        .eq('username', currentUser)
+        .single();
+
+    if (senderErr || !senderProfile) {
+        throw new Error("Imeshindwa kutofautisha akaunti yako. Jaribu kulogin tena.");
+    }
+
+    let targetColumn = dbColumns[type];
+    let senderCurrentCoins = Number(senderProfile[targetColumn] || 0);
+
+    if (senderCurrentCoins < amount) {
+        alert(`Huna coins za kutosha! Salio lako la sasa la ${type.toUpperCase()} ni ${senderCurrentCoins} tu.`);
+        btn.innerText = "Send Coins";
+        btn.disabled = false;
+        return;
+    }
+
+    // 3. FANYA HESABU ZA COINS MPYA
+    let newSenderBalance = senderCurrentCoins - amount;
+    let receiverCurrentCoins = Number(receiverProfile[targetColumn] || 0);
+    let newReceiverBalance = receiverCurrentCoins + amount;
+
+    // 4. SASISHA PANDE ZOTE MBILI KWENYE DATABASE
+    // (A) Kata kwa mtumaji
+    let senderUpdate = {};
+    senderUpdate[targetColumn] = newSenderBalance;
+    let { error: uSenderErr } = await supabaseClient
+        .from('user_profile')
+        .update(senderUpdate)
+        .eq('username', currentUser);
+        
+    if(uSenderErr) throw uSenderErr;
+
+    // (B) Ongeza kwa mpokeaji (using exact username from DB)
+    let receiverUpdate = {};
+    receiverUpdate[targetColumn] = newReceiverBalance;
+    let { error: uRecErr } = await supabaseClient
+        .from('user_profile')
+        .update(receiverUpdate)
+        .eq('username', receiverProfile.username);  // FIXED: use DB username
+        
+    if(uRecErr) throw uRecErr;
+
+    // 5. REKODI HISTORIA
+    let ref = "TRX-" + Math.floor(100000 + Math.random() * 899999);
+    try {
+        await supabaseClient
+          .from('community_chat')
+          .insert([{
+              category: 'General',
+              user_name: '💸 P2P TRANSFER',
+              text: `Muamala Umefanikiwa! [ ${currentUser} ] ametuma 🪙 ${amount} (${type.toUpperCase()}) kwenda kwa [ ${receiverProfile.username} ]. Ref: ${ref}`
+          }]);
+    } catch(e) {
+        console.log("Chat log skipped");
+    }
+
+    alert(`🎉 Umefanikiwa kutuma coins ${amount} (${type.toUpperCase()}) kwenda kwa ${receiverProfile.username}.\nRef: ${ref}`);
+    document.getElementById("amount").value = "";
+    document.getElementById("receiverCode").value = "";
+
+  } catch(err) {
+      alert("Uhamisho umefeli: " + err.message);
+  } finally {
+      btn.innerText = "Send Coins";
+      btn.disabled = false;
+      loadLiveWallet();
+  }
+}
+
+// Inarun punde tu ukurasa unapomaliza kuload
+window.onload = loadLiveWallet;
+</script>
+
+</body>
+</html>
