@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>DUSKCORE - Withdrawal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="duskcore logo.jpg">
+  
+  <!-- Tumeongeza Supabase library hapa chini -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    body { 
+      margin: 0; 
+      font-family: Arial, sans-serif; 
+      background: radial-gradient(circle, #0a0a0a, #000); 
+      color: white; 
+      display: flex; 
+      justify-content: center; 
+      align-items: center; 
+      min-height: 100vh; 
+      padding: 20px 0;
+    }
+    .box { 
+      width: 90%; 
+      max-width: 380px; 
+      padding: 25px; 
+      border-radius: 15px; 
+      background: rgba(255,255,255,0.05); 
+      backdrop-filter: blur(10px); 
+      border: 1px solid #a020f0; 
+      box-shadow: 0 0 20px rgba(160,32,240,0.4); 
+      text-align: center; 
+      box-sizing: border-box;
+    }
+    h2 { 
+      color: #a020f0; 
+      text-shadow: 0 0 10px #a020f0; 
+      margin-bottom: 20px; 
+    }
+    input, select { 
+      width: 100%; 
+      padding: 12px; 
+      margin: 10px 0; 
+      border-radius: 8px; 
+      border: 1px solid #333; 
+      background: #111; 
+      color: white; 
+      outline: none; 
+      box-sizing: border-box;
+    }
+    input:focus, select:focus {
+      border-color: #a020f0;
+    }
+    .wallet { 
+      margin-bottom: 20px; 
+      font-weight: bold; 
+      background: rgba(160,32,240,0.1); 
+      padding: 12px; 
+      border-radius: 10px; 
+      display: flex; 
+      justify-content: space-around; 
+    }
+    button { 
+      width: 100%; 
+      padding: 12px; 
+      margin-top: 10px; 
+      background: #a020f0; 
+      border: none; 
+      border-radius: 10px; 
+      cursor: pointer; 
+      color: black; 
+      font-weight: bold; 
+      transition: 0.3s; 
+      box-sizing: border-box;
+    }
+    button:hover { 
+      transform: scale(1.02); 
+      background: #bd40ff; 
+    }
+    .result { 
+      margin-top: 15px; 
+      font-size: 18px; 
+      color: #00ffff; 
+      font-weight: bold; 
+    }
+    .dashboard { 
+      position: fixed; 
+      bottom: 20px; 
+      right: 20px; 
+      padding: 12px 18px; 
+      background: #a020f0; 
+      color: black; 
+      border-radius: 30px; 
+      text-decoration: none; 
+      font-weight: bold; 
+      box-shadow: 0 0 10px rgba(160,32,240,0.5); 
+    }
+  </style>
+</head>
+<body>
+
+<div class="box">
+  <h2>Withdraw Coins</h2>
+  
+  <!-- Hapa kitaonyesha salio halisi kutoka Supabase -->
+  <div class="wallet">
+    <span>🔴 <span id="red">...</span></span>
+    <span>🔵 <span id="blue">...</span></span>
+    <span>🟣 <span id="super">...</span></span>
+  </div>
+
+  <input type="text" id="userCode" placeholder="Weka DUSKCODE yako">
+  
+  <select id="coinType" onchange="calculate()">
+    <option value="red">Red Coin (200 TSH)</option>
+    <option value="blue">Blue Coin (500 TSH)</option>
+    <option value="super">Super Coin (1000 TSH)</option>
+  </select>
+  
+  <input type="number" id="amount" placeholder="Kiasi cha kutoa" oninput="calculate()" min="1">
+
+  <div class="result" id="result">Utapokea: 0 TSH</div>
+  <button id="withdrawBtn" onclick="withdraw()" style="background: #ff3366; color: white;">🚀 Tuma Ombi kwa Admin</button>
+</div>
+
+<a class="dashboard" href="dashboard.html">Dashboard</a>
+
+<script>
+// Supabase Credentials zilizounganishwa kwenye mfumo wako mzima
+const supabaseUrl = "https://ldgnyehqrharqvynohla.supabase.co";
+const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkZ255ZWhxcmhhcnF2eW5vaGxhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMzgzMDcsImV4cCI6MjA5NDYxNDMwN30.80vZuD20je-8VKDJwoy7P2mFYqY9Vcq3nMd9K-pHYBI";
+const supabaseClient = supabase.createClient(supabaseUrl, supabaseAnonKey);
+
+// Ramani ya majina ya columns za sarafu kwenye database yako
+const dbColumns = {
+    red: 'red_coins',
+    blue: 'blue_coins',
+    super: 'super_coins'
+};
+
+// Uhifadhi wa muda wa salio lililotoka kwenye database
+let liveBalance = { red: 0, blue: 0, super: 0 };
+
+function getStorage(key) { return JSON.parse(localStorage.getItem(key)) || []; }
+function saveStorage(key, data) { localStorage.setItem(key, JSON.stringify(data)); }
+
+// Inapakia salio halisi la mtumiaji kutoka database ya Supabase
+async function loadLiveWallet() {
+  let savedUser = localStorage.getItem("dusk_username");
+  if(savedUser) {
+    document.getElementById("userCode").value = savedUser;
+    
+    try {
+      let { data: profile, error } = await supabaseClient
+        .from('user_profile')
+        .select('red_coins, blue_coins, super_coins')
+        .eq('username', savedUser)
+        .single();
+        
+      if(error) throw error;
+
+      if(profile) {
+        liveBalance.red = profile.red_coins || 0;
+        liveBalance.blue = profile.blue_coins || 0;
+        liveBalance.super = profile.super_coins || 0;
+
+        document.getElementById("red").innerText = liveBalance.red;
+        document.getElementById("blue").innerText = liveBalance.blue;
+        document.getElementById("super").innerText = liveBalance.super;
+      }
+    } catch(err) {
+      console.error("Imeshindwa kuvuta salio halisi: ", err.message);
+      // Kama mtandao unasumbua, weka sifuri
+      document.getElementById("red").innerText = "0";
+      document.getElementById("blue").innerText = "0";
+      document.getElementById("super").innerText = "0";
+    }
+  } else {
+    alert("Tafadhali login kwanza ili uweze kuona salio lako!");
+    window.location.href = "login.html";
+  }
+}
+
+function calculate() {
+  let type = document.getElementById("coinType").value;
+  let amount = Math.floor(Number(document.getElementById("amount").value || 0));
+  let rate = (type === "red") ? 200 : (type === "blue" ? 500 : 1000);
+  let total = amount * rate;
+  document.getElementById("result").innerText = "Utapokea: " + total + " TSH";
+  return total;
+}
+async function withdraw() {
+  let user = document.getElementById("userCode").value.trim();
+  let type = document.getElementById("coinType").value;
+  let amount = Math.floor(Number(document.getElementById("amount").value || 0));
+  let totalTsh = calculate();
+  let btn = document.getElementById("withdrawBtn");
+
+  if (user === "") return alert("Weka DUSKCODE!");
+  if (amount <= 0) return alert("Weka kiasi sahihi cha kuanzia sarafu 1!");
+
+  btn.innerText = "Processing Withdrawal...";
+  btn.disabled = true;
+
+  try {
+    // 1. Uhakiki wa mwisho: Tuhakiki kama mtumiaji ana coins za kutosha
+    let { data: currentProfile, error: fetchErr } = await supabaseClient
+        .from('user_profile')
+        .select('red_coins, blue_coins, super_coins')
+        .eq('username', user)
+        .single();
+
+    if (fetchErr || !currentProfile) {
+        throw new Error("Mtumiaji hajapatikana kwenye mfumo. Hakikisha DUSKCODE ni sahihi.");
+    }
+
+    let targetColumn = dbColumns[type];
+    let actualCoinsInDb = Number(currentProfile[targetColumn] || 0);
+
+    if (actualCoinsInDb < amount) {
+        alert(`Huna coins za kutosha! Salio lako la sasa la ${type.toUpperCase()} ni ${actualCoinsInDb} tu.`);
+        btn.innerText = "🚀 Tuma Ombi kwa Admin";
+        btn.disabled = false;
+        return;
+    }
+
+    // 2. SAVE WITHDRAWAL REQUEST KWENYE WITHDRAWALS TABLE (Hakuna kuzuia coins live)
+    let withdrawData = {
+        username: user,
+        red: type === 'red' ? amount : 0,
+        blue: type === 'blue' ? amount : 0,
+        super: type === 'super' ? amount : 0,
+        total_tsh: totalTsh,
+        admin_confirmation: null,  // ← Ama null
+        created_at: new Date().toISOString()
+    };
+
+    let { data: insertedWithdraw, error: insertErr } = await supabaseClient
+        .from('withdrawals')
+        .insert([withdrawData]);
+
+    if (insertErr) throw insertErr;
+
+    // 3. Log to community chat (optional)
+    let ref = "WD-" + Math.floor(100000 + Math.random() * 900000);
+    try {
+        await supabaseClient
+          .from('community_chat')
+          .insert([{
+              category: 'General',
+              user_name: '🚨 WITHDRAW REQUEST',
+              text: `Mchezaji [ ${user} ] ametoa ombi la kuwithdraw coins ${amount} (${type.toUpperCase()}). Anapaswa kutumwa TSH ${totalTsh}/=. Ref: ${ref}`
+          }]);
+    } catch(e) {
+        console.log("Chat log skipped");
+    }
+
+    // 4. Peleka WhatsApp
+    let msg = `Habari Admin, nimeomba kutoa pesa kwenye mfumo wa DUSKCORE:%0A👤 User: ${user}%0A🪙 Coins: ${amount} (${type.toUpperCase()})%0A💰 Kiasi: ${totalTsh} TSH%0A🆔 Ref: ${ref}`;
+    
+    alert(`🎉 Ombi lako limejificha kwa Admin! Subiri confirmation...`);
+    window.location.href = `https://wa.me/255673466647?text=${msg}`;
+
+  } catch(err) {
+      alert("Ombi limeshindwa: " + err.message);
+  } finally {
+      btn.innerText = "🚀 Tuma Ombi kwa Admin";
+      btn.disabled = false;
+      loadLiveWallet();
+  }
+}
+
+// Inafanya kazi ukurasa ukimaliza kufunguka
+window.onload = loadLiveWallet;
+</script>
+</body>
+</html>
