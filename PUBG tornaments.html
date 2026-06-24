@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="sw">
+<head>
+    <meta charset="UTF-8">
+    <title>DUSKCORE - PUBG Mobile Tournaments</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="duskcore logo.jpg">
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        body { margin: 0; font-family: 'Segoe UI', Arial, sans-serif; background: radial-gradient(circle at top, #1a0a2a, #000); color: white; padding-bottom: 80px; }
+        h1, h2 { color: #a020f0; text-align: center; text-shadow: 0 0 10px #a020f0; text-transform: uppercase; }
+        .category-title { background: rgba(160, 32, 240, 0.15); padding: 12px; text-align: center; border-top: 2px solid #a020f0; border-bottom: 2px solid #a020f0; margin-top: 30px; letter-spacing: 1px; }
+        .wallet-display { background: rgba(160, 32, 240, 0.08); border: 1px solid rgba(160, 32, 240, 0.4); border-radius: 10px; padding: 10px; max-width: 400px; margin: 15px auto; display: flex; justify-content: space-around; font-weight: bold; }
+        .t-card { width: 92%; max-width: 500px; margin: 20px auto; border: 1px solid #a020f0; border-radius: 15px; background: rgba(10, 5, 20, 0.9); box-shadow: 0 5px 20px rgba(160,32,240,0.3); overflow: hidden; }
+        .t-card img { width: 100%; height: 200px; object-fit: cover; border-bottom: 1px solid #a020f0; }
+        .t-details { padding: 18px; }
+        .badge { display: inline-block; background: #a020f0; color: white; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-bottom: 10px; text-transform: uppercase; }
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 15px 0; }
+        .info-box { background: rgba(160, 32, 240, 0.05); padding: 12px; border-radius: 8px; border: 1px solid rgba(160,32,240,0.3); text-align: center; font-size: 14px; }
+        .countdown { color: #ff3366; font-weight: bold; font-family: 'Courier New', monospace; font-size: 16px; }
+        .btn-join { display: block; width: 100%; padding: 15px; text-align: center; background: #a020f0; color: white; font-weight: bold; font-size: 16px; border: none; border-radius: 8px; cursor: pointer; transition: 0.3s; text-transform: uppercase; }
+        .btn-join:hover { background: #bc3df5; box-shadow: 0 0 15px rgba(160,32,240,0.6); }
+        .btn-disabled { background: #333 !important; color: #777 !important; cursor: not-allowed; }
+        .btn-enter { background: #0a8a0a !important; }
+        .btn-enter:hover { background: #0cb80c !important; box-shadow: 0 0 15px rgba(10,200,10,0.6) !important; }
+        .dashboard { position: fixed; bottom: 20px; right: 20px; padding: 15px 25px; background: #a020f0; color: white; border-radius: 50px; text-decoration: none; font-weight: bold; z-index: 1000; }
+    </style>
+</head>
+<body>
+
+<h1>🏆 PUBG MOBILE TOURNAMENTS</h1>
+
+<div class="wallet-display">
+    <span>🔴 Red: <span id="walletRed">...</span></span>
+    <span>🔵 Blue: <span id="walletBlue">...</span></span>
+    <span>🟣 Super: <span id="walletSuper">...</span></span>
+</div>
+
+<h2 class="category-title">🟢 ONGOING TOURNAMENTS</h2>
+<div id="ongoingContainer"></div>
+
+<h2 class="category-title">⏳ UPCOMING TOURNAMENTS</h2>
+<div id="upcomingContainer"></div>
+
+<a class="dashboard" href="dashboard.html">Dashboard</a>
+
+<script>
+const supabaseClient = supabase.createClient(
+    "https://ldgnyehqrharqvynohla.supabase.co", 
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkZ255ZWhxcmhhcnF2eW5vaGxhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMzgzMDcsImV4cCI6MjA5NDYxNDMwN30.80vZuD20je-8VKDJwoy7P2mFYqY9Vcq3nMd9K-pHYBI"
+);
+
+const dbColumns = { "Red Coins": 'red_coins', "Blue Coins": 'blue_coins', "Super Coins": 'super_coins' };
+const coinIcons = { "Red Coins": "🔴 Red", "Blue Coins": "🔵 Blue", "Super Coins": "🟣 Super" };
+let currentUser = localStorage.getItem("dusk_username");
+let activeTimers = [];
+
+async function loadLiveWallet() {
+    if (!currentUser) return;
+    let { data: profile } = await supabaseClient.from('user_profile').select('*').eq('username', currentUser).single();
+    if (profile) {
+        document.getElementById("walletRed").innerText = profile.red_coins || 0;
+        document.getElementById("walletBlue").innerText = profile.blue_coins || 0;
+        document.getElementById("walletSuper").innerText = profile.super_coins || 0;
+    }
+}
+
+async function loadTournaments() {
+    activeTimers.forEach(clearInterval);
+    activeTimers = [];
+    let ongoingHTML = "", upcomingHTML = "", now = Date.now();
+
+    // Pata tournaments za PUBG
+    let { data: tList } = await supabaseClient
+        .from('tournaments')
+        .select('*')
+        .ilike('game', '%PUBG%')
+        .eq('isleague', false)
+        .order('start_date', { ascending: true });
+
+    // Pata tournaments ambazo user ameshajoin
+    let joinedIds = [];
+    if (currentUser) {
+        let { data: joinedList } = await supabaseClient
+    .from('pubg_participants')
+    .select('tournament_id')
+    .eq('participant', currentUser);
+        joinedIds = joinedList ? joinedList.map(j => j.tournament_id) : [];
+    }
+
+    if (!tList || tList.length === 0) {
+        document.getElementById("ongoingContainer").innerHTML = "<p style='text-align:center'>Hakuna.</p>";
+        document.getElementById("upcomingContainer").innerHTML = "<p style='text-align:center'>Hakuna.</p>";
+        return;
+    }
+
+    tList.forEach((t) => {
+        let startMs = new Date(t.start_date).getTime();
+        let expireMs = new Date(t.end_date).getTime();
+        if (now > expireMs) return;
+
+        let joinedCount = t.joined || 0;
+        let maxPlayers = t.max_players || 16;
+        let isOngoing = now >= startMs;
+        let hasJoined = joinedIds.includes(t.id);
+        let isFull = joinedCount >= maxPlayers;
+
+        let imageSrc = t.image_url ? t.image_url : "https://via.placeholder.com/500x200?text=PUBG+Tournament";
+
+        // Button logic:
+        // 1. User ameshajoin → ENTER TOURNAMENT (green)
+        // 2. Tournament imejaa na hajajoin → FULL (disabled)
+        // 3. Bado ana nafasi → JOIN TOURNAMENT
+let buttonHTML = "";
+        if (hasJoined) {
+            if (isOngoing) {
+                let pageMap = {
+                    "25team": "25team.html",
+                    "20team": "20team.html",
+                    "15team": "15team.html",
+                    "10team": "10team.html",
+                    "5team": "5team.html"
+                };
+                
+                // Debug - nishow value
+                console.log("Tournament:", t);
+                console.log("Sub format:", t.sub_format || t.subformat);
+                
+                let subformat = t.sub_format || t.subformat; // Try both
+                let targetPage = pageMap[subformat] || "tournament-room.html";
+                
+                console.log("Target page:", targetPage);
+                buttonHTML = `<button class="btn-join btn-enter" onclick="enterTournament('${targetPage}', ${t.id})">▶️ ENTER TOURNAMENT</button>`;
+            } else {
+                buttonHTML = `<button class="btn-join btn-disabled" disabled>⏳ WAITING TO START</button>`;
+            }
+        } else if (isFull) {
+            buttonHTML = `<button class="btn-join btn-disabled" disabled>❌ FULL</button>`;
+        } else {
+            buttonHTML = `<button class="btn-join" onclick="joinTournament(${t.id}, ${t.fee_amount}, '${t.fee_type}', '${t.title.replace(/'/g, "\\'")}', this)">JOIN TOURNAMENT</button>`;
+        }
+        let card = `
+        <div class="t-card">
+            <img src="${imageSrc}" alt="${t.title}">
+            <div class="t-details">
+                <span class="badge">PUBG - ${t.format.toUpperCase()}</span>
+                <h3>${t.title}</h3>
+                <p>${t.description || ""}</p>
+                <div class="info-grid">
+                    <div class="info-box"><b>FEE</b><br>${t.fee_amount} ${t.fee_type}</div>
+                    <div class="info-box"><b>STATUS</b><br>${joinedCount}/${maxPlayers}</div>
+                </div>
+                ${!isOngoing ? `<div style="text-align:center">Starts in: <span class="countdown" id="cd_start_${t.id}">Loading...</span></div>` : `<div style="text-align:center">▶️ ONGOING</div>`}
+                ${buttonHTML}
+            </div>
+        </div>`;
+
+        isOngoing ? ongoingHTML += card : upcomingHTML += card;
+        if (now < startMs) startCountdown("cd_start_" + t.id, startMs);
+    });
+
+    document.getElementById("ongoingContainer").innerHTML = ongoingHTML || "<p style='text-align:center'>Hakuna.</p>";
+    document.getElementById("upcomingContainer").innerHTML = upcomingHTML || "<p style='text-align:center'>Hakuna.</p>";
+}
+
+function startCountdown(elementId, targetTime) {
+    let interval = setInterval(() => {
+        let diff = targetTime - Date.now();
+        if (diff <= 0) { clearInterval(interval); loadTournaments(); }
+        else {
+            let h = Math.floor(diff / (1000 * 60 * 60)), m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)), s = Math.floor((diff % (1000 * 60)) / 1000);
+            document.getElementById(elementId).innerText = `${h}h ${m}m ${s}s`;
+        }
+    }, 1000);
+    activeTimers.push(interval);
+}
+
+function enterTournament(page, tId) {
+    console.log("Navigating to:", page + "?id=" + tId);
+    window.location.href = page + "?id=" + tId;
+}
+
+async function joinTournament(tId, fee, coinType, title, buttonElement) {
+    buttonElement.disabled = true;
+    buttonElement.innerText = "⏳ LOADING...";
+    buttonElement.style.background = "#666";
+    
+    if (!confirm(`Jiunge na "${title}"?`)) {
+        buttonElement.disabled = false;
+        buttonElement.innerText = "JOIN TOURNAMENT";
+        buttonElement.style.background = "";
+        return;
+    }
+    
+    try {
+        // STEP 1: Check coins FIRST
+        let { data: profile, error: profileError } = await supabaseClient
+            .from('user_profile')
+            .select('*')
+            .eq('username', currentUser)
+            .single();
+            
+        if (profileError) throw profileError;
+        
+        let targetCol = dbColumns[coinType];
+        
+        if (profile[targetCol] < fee) {
+            alert("Salio halitoshi!");
+            buttonElement.disabled = false;
+            buttonElement.innerText = "JOIN TOURNAMENT";
+            buttonElement.style.background = "";
+            return;
+        }
+
+        // STEP 2: Get current participant count to assign team
+        let { data: participants } = await supabaseClient
+            .from('pubg_participants')
+            .select('id', { count: 'exact', head: false })
+            .eq('tournament_id', tId);
+            
+        let playerCount = participants ? participants.length : 0;
+        let teamIndex = Math.floor(playerCount / 4);
+        
+        const teams = [
+            "Shadow Reapers", "Blood Ravens", "Dark Legion", "Night Howlers", "Venom Vipers",
+            "Chaos Wolves", "Iron Phantoms", "Doom Hunters", "Black Fangs", "Death Watch",
+            "Inferno Kings", "Crimson Skulls", "War Crows", "Silent Predators", "Savage Titans",
+            "Toxic Serpents", "Phantom Raiders", "Hellborn Elite", "Obsidian Force", "Skull Breakers",
+            "Dark Eclipse", "Vortex Hunters", "Grim Shadows", "Storm Reapers", "Dread Wolves"
+        ];
+        
+        let assignedTeam = teams[teamIndex];
+
+        if (!assignedTeam) {
+            alert("Tournament imejaa!");
+            buttonElement.disabled = false;
+            buttonElement.innerText = "JOIN TOURNAMENT";
+            buttonElement.style.background = "";
+            return;
+        }
+
+        // Insert kwenye pubg_participants na assigned team
+        console.log("Inserting to pubg_participants...", { tournament_id: tId, participant: currentUser, team: assignedTeam });
+        let { data: insertData, error: insertError } = await supabaseClient
+            .from('pubg_participants')
+            .insert({ 
+                tournament_id: tId, 
+                participant: currentUser,
+                team: assignedTeam
+            });
+            
+        if (insertError) {
+            console.error("Insert error:", insertError);
+            throw insertError;
+        }
+        console.log("Insert success:", insertData);
+
+        // STEP 3: Deduct coins
+        let { error: deductError } = await supabaseClient
+            .from('user_profile')
+            .update({ [targetCol]: profile[targetCol] - fee })
+            .eq('username', currentUser);
+            
+        if (deductError) throw deductError;
+
+        // STEP 4: Update tournament joined count
+        let { data: tData } = await supabaseClient
+            .from('tournaments')
+            .select('joined')
+            .eq('id', tId)
+            .single();
+            
+        await supabaseClient.from('tournaments')
+            .update({ joined: (tData.joined || 0) + 1 })
+            .eq('id', tId);
+
+        alert("✅ Umefaulu! Team: " + assignedTeam);
+        setTimeout(() => location.reload(), 1000);
+        
+    } catch(err) {
+        console.error("Full error:", err);
+        alert("Error: " + (err.message || err));
+        buttonElement.disabled = false;
+        buttonElement.innerText = "JOIN TOURNAMENT";
+        buttonElement.style.background = "";
+    }
+}
+window.onload = () => { loadLiveWallet(); loadTournaments(); };
+</script>
+</body>
+</html>
