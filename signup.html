@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>DUSKCORE - Sign Up</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="duskcore logo.jpg">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { margin: 0; font-family: Arial; background: radial-gradient(circle at top, #0a0a0a, #000); color: white; display: flex; justify-content: center; align-items: center; height: 100vh; }
+    .box { width: 360px; padding: 25px; border-radius: 15px; background: rgba(255,255,255,0.05); backdrop-filter: blur(12px); border: 1px solid rgba(160,32,240,0.4); box-shadow: 0 0 20px rgba(160,32,240,0.4); text-align: center; box-sizing: border-box; }
+    .logo { width: 100px; border-radius: 15px; box-shadow: 0 0 15px #a020f0; margin-bottom: 10px; }
+    h2 { color: #a020f0; text-shadow: 0 0 10px #a020f0; }
+    input { width: 100%; padding: 10px; margin: 8px 0; border-radius: 8px; border: 1px solid #333; background: #000; color: white; outline: none; box-sizing: border-box; }
+    input:focus { border-color: #a020f0; }
+    button { width: 100%; padding: 12px; margin-top: 10px; background: #a020f0; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; color: black; box-shadow: 0 0 15px #a020f0; transition: 0.3s; }
+    button:hover { transform: scale(1.05); }
+    .note { font-size: 12px; opacity: 0.7; margin-top: 15px; line-height: 1.4; }
+    a { color: #a020f0; text-decoration: none; font-size: 13px; }
+  </style>
+</head>
+
+<body>
+<div class="box">
+  <img src="duskcore logo.jpg" class="logo">
+  <h2>Create DUSKCORE Account</h2>
+  <input type="text" id="username" placeholder="Username" autocomplete="off">
+  <input type="email" id="email" placeholder="Email Address">
+  <input type="password" id="password" placeholder="Password">
+  <button id="signupBtn" onclick="signup()">Sign Up</button>
+  <p class="note">After signing up, you will receive an email verification link before accessing your dashboard.</p>
+  <p style="font-size: 14px; margin-top: 15px;">Already have an account? <a href="login.html">Login</a></p>
+</div>
+
+<script>
+  const supabaseUrl = "https://ldgnyehqrharqvynohla.supabase.co";
+  const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkZ255ZWhxcmhhcnF2eW5vaGxhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMzgzMDcsImV4cCI6MjA5NDYxNDMwN30.80vZuD20je-8VKDJwoy7P2mFYqY9Vcq3nMd9K-pHYBI";
+  const supabaseClient = supabase.createClient(supabaseUrl, supabaseAnonKey);
+
+  async function signup(){
+    let username = document.getElementById("username").value.trim();
+    let email = document.getElementById("email").value.trim();
+    let password = document.getElementById("password").value;
+    let btn = document.getElementById("signupBtn");
+
+    if(username === "" || email === "" || password === ""){
+      alert("Please fill all fields");
+      return;
+    }
+    if(password.length < 6) {
+      alert("Password must be at least 6 characters long!");
+      return;
+    }
+
+    btn.innerText = "Creating Account...";
+    btn.disabled = true;
+
+    try {
+      const { data, error } = await supabaseClient.auth.signUp({
+        email: email,
+        password: password,
+        options: {
+          data: { username: username } // Hii ndiyo tunayoisoma kwenye SQL Trigger
+        }
+      });
+
+      if (error) throw error;
+      alert("🚀 Account created successfully! Please check your email inbox or spam folder for the verification link before logging in.");
+      window.location.href = "login.html";
+    } catch (err) {
+      alert("Sign Up Failed: " + err.message);
+    } finally {
+      btn.innerText = "Sign Up";
+      btn.disabled = false;
+    }
+  }
+</script>
+</body>
+</html>
