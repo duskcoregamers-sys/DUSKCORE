@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="sw">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DuskCore — Match PvP</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@500;600;700&display=swap');
+
+  :root{
+    --bg: #0a0714;
+    --panel: #14101f;
+    --purple: #b34bff;
+    --purple-bright: #d47bff;
+    --cyan: #35e0ff;
+    --text: #f1eaff;
+    --text-dim: #a89dc4;
+    --danger: #ff5d7a;
+  }
+
+  *{ box-sizing: border-box; margin:0; padding:0; }
+
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(ellipse at 20% 20%, rgba(179,75,255,0.10), transparent 55%),
+      radial-gradient(ellipse at 80% 80%, rgba(53,224,255,0.08), transparent 55%),
+      var(--bg);
+    font-family: 'Rajdhani', sans-serif;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding: 32px 16px;
+    color: var(--text);
+    overflow-x:hidden;
+  }
+
+  .frame{
+    width:100%;
+    max-width: 920px;
+    border: 1px solid rgba(179,75,255,0.35);
+    border-radius: 20px;
+    background: linear-gradient(180deg, rgba(24,16,38,0.9), rgba(10,7,20,0.95));
+    box-shadow: 0 0 60px rgba(179,75,255,0.15), inset 0 0 40px rgba(179,75,255,0.04);
+    padding: 36px 28px 32px;
+    position:relative;
+  }
+
+  .frame::before, .frame::after{
+    content:"";
+    position:absolute;
+    top:14%;
+    bottom:14%;
+    width:4px;
+    border-radius:4px;
+    background: linear-gradient(180deg, transparent, var(--purple-bright), transparent);
+    box-shadow: 0 0 14px var(--purple-bright);
+    opacity:0.7;
+  }
+  .frame::before{ left:-2px; }
+  .frame::after{ right:-2px; }
+
+  .logo{
+    text-align:center;
+    font-family:'Orbitron', sans-serif;
+    font-weight:900;
+    font-size: clamp(28px, 5vw, 42px);
+    letter-spacing: 3px;
+    color: var(--purple-bright);
+    text-shadow: 0 0 18px rgba(212,123,255,0.8), 0 0 40px rgba(179,75,255,0.4);
+    margin-bottom: 22px;
+  }
+
+  /* JOIN PANEL */
+  .join-panel{
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    background: rgba(255,255,255,0.02);
+    padding: 26px 22px;
+    margin-bottom: 10px;
+  }
+  .join-panel label{
+    display:block;
+    font-size: 13px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+    text-align:center;
+  }
+  .join-row{
+    display:flex;
+    gap: 10px;
+  }
+  .join-row input{
+    flex:1;
+    min-width:0;
+    background:#05030a;
+    border: 1px solid rgba(53,224,255,0.35);
+    border-radius: 10px;
+    padding: 14px 16px;
+    color: var(--cyan);
+    font-family:'Orbitron', sans-serif;
+    font-size: 16px;
+    letter-spacing: 2px;
+    text-align:center;
+    outline:none;
+  }
+  .join-row input:focus{
+    border-color: var(--cyan);
+    box-shadow: 0 0 14px rgba(53,224,255,0.35);
+  }
+  .join-row button{
+    flex-shrink:0;
+    padding: 0 22px;
+    border-radius: 10px;
+    border: 1px solid var(--purple-bright);
+    background: linear-gradient(180deg, rgba(179,75,255,0.35), rgba(120,40,200,0.35));
+    color: var(--text);
+    font-family:'Orbitron', sans-serif;
+    font-weight:700;
+    font-size: 13px;
+    letter-spacing: 1px;
+    cursor:pointer;
+  }
+  .join-row button:disabled{ opacity:0.5; cursor:not-allowed; }
+
+  .status-msg{
+    text-align:center;
+    font-size: 13px;
+    margin-top: 12px;
+    min-height: 18px;
+  }
+  .status-msg.error{ color: var(--danger); }
+  .status-msg.ok{ color: var(--cyan); }
+  .status-msg.loading{ color: var(--text-dim); }
+
+  /* MATCH CARD */
+  .match-card{
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    background: rgba(255,255,255,0.02);
+    padding: 24px 20px;
+    margin: 20px 0 28px;
+    display:none;
+  }
+
+  .match-title{
+    text-align:center;
+    font-family:'Orbitron', sans-serif;
+    font-weight:700;
+    font-size: clamp(15px, 3vw, 20px);
+    letter-spacing:1px;
+    margin-bottom: 6px;
+  }
+
+  .match-sub{
+    text-align:center;
+    color: var(--text-dim);
+    font-size: 13px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 26px;
+  }
+  .match-sub .live-dot{
+    display:inline-block;
+    width:7px; height:7px;
+    border-radius:50%;
+    background: var(--cyan);
+    box-shadow: 0 0 8px var(--cyan);
+    margin-right:6px;
+    animation: pulse 1.4s infinite;
+  }
+  @keyframes pulse{
+    0%,100%{ opacity:1; } 50%{ opacity:0.3; }
+  }
+
+  .vs-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap: 12px;
+  }
+
+  .side{
+    display:flex;
+    align-items:center;
+    gap: 14px;
+    flex: 1;
+    min-width:0;
+  }
+  .side.b{ flex-direction: row-reverse; text-align:right; }
+
+  .avatar-slot{
+    width: 64px;
+    height: 64px;
+    flex-shrink:0;
+    border-radius: 14px;
+    border: 2px dashed rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.03);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color: var(--text-dim);
+    overflow:hidden;
+  }
+  .avatar-slot svg{ width:28px; height:28px; opacity:0.5; }
+  .avatar-slot img{
+    width:100%;
+    height:100%;
+    object-fit: cover;
+    display:none;
+  }
+  .avatar-slot.has-photo{
+    border-style: solid;
+    border-color: rgba(179,75,255,0.5);
+  }
+  .avatar-slot.has-photo img{ display:block; }
+  .avatar-slot.has-photo svg{ display:none; }
+
+  .side-info{ min-width:0; }
+  .side-info .name{
+    font-family:'Orbitron', sans-serif;
+    font-weight:700;
+    font-size: clamp(15px, 2.6vw, 20px);
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+    white-space: nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .side-info .meta{
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+  .side-info .meta b{ color: var(--text); font-weight:600; }
+
+  .score-block{
+    display:flex;
+    align-items:center;
+    gap: 10px;
+    flex-shrink:0;
+  }
+
+  .digit{
+    width: 46px;
+    height: 58px;
+    border-radius: 8px;
+    background: #050308;
+    border: 1px solid rgba(53,224,255,0.4);
+    box-shadow: 0 0 16px rgba(53,224,255,0.35), inset 0 0 12px rgba(53,224,255,0.15);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:'Orbitron', sans-serif;
+    font-weight:800;
+    font-size: 26px;
+    color: var(--cyan);
+    text-shadow: 0 0 10px var(--cyan);
+    transition: transform 0.2s ease;
+  }
+  .digit.bump{ transform: scale(1.18); }
+
+  .vs-mark{
+    font-family:'Orbitron', sans-serif;
+    font-weight:900;
+    font-style: italic;
+    color: var(--purple-bright);
+    font-size: 18px;
+    text-shadow: 0 0 10px var(--purple-bright);
+  }
+
+  .upload-section{ display:none; }
+
+  .upload-heading{
+    text-align:center;
+    font-family:'Orbitron', sans-serif;
+    font-weight:700;
+    font-size: clamp(15px, 3vw, 19px);
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+  }
+
+  .upload-box{
+    border: 1.5px solid rgba(179,75,255,0.55);
+    border-radius: 12px;
+    padding: 34px 20px;
+    text-align:center;
+    cursor:pointer;
+    background: rgba(179,75,255,0.03);
+    transition: background 0.2s ease, border-color 0.2s ease;
+    margin-bottom: 22px;
+    position:relative;
+  }
+  .upload-box:hover{
+    background: rgba(179,75,255,0.08);
+    border-color: var(--purple-bright);
+  }
+  .upload-box svg{ width:34px; height:34px; color: var(--text-dim); margin-bottom:12px; }
+  .upload-box p{ color: var(--text-dim); font-size: 14px; letter-spacing: 0.5px; }
+  .upload-box input[type="file"]{
+    position:absolute; inset:0; opacity:0; cursor:pointer;
+  }
+  .preview-name{
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--cyan);
+  }
+
+  .btn-upload{
+    display:block;
+    width:100%;
+    padding: 16px;
+    border-radius: 10px;
+    border: 1px solid var(--purple-bright);
+    background: linear-gradient(180deg, rgba(179,75,255,0.35), rgba(120,40,200,0.35));
+    color: var(--text);
+    font-family:'Orbitron', sans-serif;
+    font-weight:700;
+    font-size: 16px;
+    letter-spacing: 1.5px;
+    cursor:pointer;
+    box-shadow: 0 0 24px rgba(179,75,255,0.35);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .btn-upload:hover{
+    transform: translateY(-1px);
+    box-shadow: 0 0 34px rgba(212,123,255,0.55);
+  }
+  .btn-upload:active{ transform: translateY(0); }
+  .btn-upload:disabled{ opacity:0.5; cursor:not-allowed; transform:none; }
+
+  .upload-status{
+    text-align:center;
+    font-size: 13px;
+    margin-top: 12px;
+    min-height: 18px;
+  }
+  .upload-status.error{ color: var(--danger); }
+  .upload-status.ok{ color: var(--cyan); }
+
+  .change-room{
+    display:block;
+    text-align:center;
+    margin-top: 18px;
+    font-size: 12px;
+    color: var(--text-dim);
+    text-decoration: underline;
+    cursor:pointer;
+    background:none;
+    border:none;
+    width:100%;
+  }
+
+  @media (max-width: 560px){
+    .vs-row{ gap: 6px; }
+    .side{ gap: 8px; }
+    .avatar-slot{ width: 44px; height: 44px; border-radius: 10px; }
+    .avatar-slot svg{ width: 20px; height: 20px; }
+    .side-info .name{ font-size: 13px; }
+    .side-info .meta{ font-size: 10px; line-height: 1.4; }
+    .score-block{ gap: 5px; }
+    .digit{ width: 32px; height: 42px; font-size: 18px; border-radius: 6px; }
+    .vs-mark{ font-size: 13px; }
+  }
+
+  @media (max-width: 400px){
+    .side-info .meta{ display:none; }
+    .avatar-slot{ width: 38px; height: 38px; }
+    .digit{ width: 28px; height: 38px; font-size: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="frame">
+  <div class="logo">DUSKCORE</div>
+
+  <!-- LOADING / ERROR PANEL (haihitaji kuingiza room code — inasomwa kiotomatiki) -->
+  <div class="join-panel" id="joinPanel">
+    <div class="status-msg loading" id="joinStatus">Inapakia mechi...</div>
+  </div>
+
+  <div class="match-card" id="matchCard">
+    <div class="match-title">DUSKCORE TOURNAMENTS &mdash; MATCH PVP: A vs B</div>
+    <div class="match-sub"><span class="live-dot"></span>LIVE SCORE</div>
+
+    <div class="vs-row">
+      <div class="side a">
+        <div class="avatar-slot" id="avatarSlotA" aria-label="User A profile picture">
+          <img id="avatarImgA" src="" alt="">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="12" cy="8" r="4"/>
+            <path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7"/>
+          </svg>
+        </div>
+        <div class="side-info">
+          <div class="name" id="nameA">USER A</div>
+          <div class="meta">Room Code: <b id="roomA">-</b><br>Team: <b id="teamA">-</b></div>
+        </div>
+      </div>
+
+      <div class="score-block">
+        <div class="digit" id="scoreA">0</div>
+        <div class="vs-mark">VS</div>
+        <div class="digit" id="scoreB">0</div>
+      </div>
+
+      <div class="side b">
+        <div class="avatar-slot" id="avatarSlotB" aria-label="User B profile picture">
+          <img id="avatarImgB" src="" alt="">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="12" cy="8" r="4"/>
+            <path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7"/>
+          </svg>
+        </div>
+        <div class="side-info">
+          <div class="name" id="nameB">USER B</div>
+          <div class="meta">Room Code: <b id="roomB">-</b><br>Team: <b id="teamB">-</b></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="upload-section" id="uploadSection">
+    <div class="upload-heading">After Match: Upload Results</div>
+
+    <label class="upload-box" for="fileInput">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+        <path d="M4 8l2-3h12l2 3"/>
+        <rect x="3" y="8" width="18" height="12" rx="2"/>
+        <circle cx="12" cy="14" r="3.2"/>
+      </svg>
+      <p>Tap to upload match screenshot</p>
+      <input type="file" id="fileInput" accept="image/*">
+      <div class="preview-name" id="fileName"></div>
+    </label>
+
+    <button class="btn-upload" id="uploadBtn">UPLOAD RESULTS</button>
+    <div class="upload-status" id="uploadStatus"></div>
+
+    <button class="change-room" id="backToQuickMatchBtn">Rudi Quick Match</button>
+  </div>
+</div>
+
+<script type="module">
+  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+  const supabaseUrl = "https://ldgnyehqrharqvynohla.supabase.co";
+  const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkZ255ZWhxcmhhcnF2eW5vaGxhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMzgzMDcsImV4cCI6MjA5NDYxNDMwN30.80vZuD20je-8VKDJwoy7P2mFYqY9Vcq3nMd9K-pHYBI";
+  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+  const TABLE = 'efootball_quickmatch';
+  const BUCKET = 'match-screenshots';
+  const PROFILE_TABLE = 'user_profile';
+
+  // Mchezaji wa sasa (aliyewekwa na login.html) na taarifa za mechi (zilizowekwa na quickmatch.html)
+  const currentUser = localStorage.getItem('dusk_username');
+  const currentMatch = JSON.parse(localStorage.getItem('current_match') || 'null');
+
+  // DOM refs
+  const joinPanel = document.getElementById('joinPanel');
+  const joinStatus = document.getElementById('joinStatus');
+
+  const matchCard = document.getElementById('matchCard');
+  const uploadSection = document.getElementById('uploadSection');
+
+  const nameA = document.getElementById('nameA');
+  const roomA = document.getElementById('roomA');
+  const teamA = document.getElementById('teamA');
+  const scoreA = document.getElementById('scoreA');
+  const avatarSlotA = document.getElementById('avatarSlotA');
+  const avatarImgA = document.getElementById('avatarImgA');
+
+  const nameB = document.getElementById('nameB');
+  const roomB = document.getElementById('roomB');
+  const teamB = document.getElementById('teamB');
+  const scoreB = document.getElementById('scoreB');
+  const avatarSlotB = document.getElementById('avatarSlotB');
+  const avatarImgB = document.getElementById('avatarImgB');
+
+  const fileInput = document.getElementById('fileInput');
+  const fileName = document.getElementById('fileName');
+  const uploadBtn = document.getElementById('uploadBtn');
+  const uploadStatus = document.getElementById('uploadStatus');
+  const backToQuickMatchBtn = document.getElementById('backToQuickMatchBtn');
+
+  let myRow = null;        // row for the room code entered ("User A")
+  let opponentRow = null;  // matching opponent row ("User B")
+  let channelA = null;
+  let channelB = null;
+
+  function setJoinStatus(text, type){
+    joinStatus.textContent = text || '';
+    joinStatus.className = 'status-msg' + (type ? ' ' + type : '');
+  }
+
+  function setUploadStatus(text, type){
+    uploadStatus.textContent = text || '';
+    uploadStatus.className = 'upload-status' + (type ? ' ' + type : '');
+  }
+
+  function bumpDigit(el){
+    el.classList.remove('bump');
+    void el.offsetWidth;
+    el.classList.add('bump');
+  }
+
+  function renderRows(){
+    if(!myRow) return;
+    nameA.textContent = myRow.username || 'USER A';
+    roomA.textContent = myRow.room_code || '-';
+    teamA.textContent = myRow.team_name || '-';
+    const newScoreA = (myRow.score ?? 0).toString();
+    if(scoreA.textContent !== newScoreA){ bumpDigit(scoreA); }
+    scoreA.textContent = newScoreA;
+
+    if(opponentRow){
+      nameB.textContent = opponentRow.username || 'USER B';
+      roomB.textContent = opponentRow.room_code || '-';
+      teamB.textContent = opponentRow.team_name || '-';
+      const newScoreB = (opponentRow.score ?? 0).toString();
+      if(scoreB.textContent !== newScoreB){ bumpDigit(scoreB); }
+      scoreB.textContent = newScoreB;
+    } else {
+      nameB.textContent = 'Inasubiri mpinzani...';
+      roomB.textContent = '-';
+      teamB.textContent = '-';
+      scoreB.textContent = '0';
+    }
+  }
+
+  async function fetchRowById(id){
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if(error) throw error;
+    return data;
+  }
+
+  async function fetchRowByUsername(username, myUsername){
+    // MUHIMU: mtumiaji anaweza kuwa na safu nyingi za zamani (pending/expired)
+    // kwa sababu kila 'search' inaunda row mpya. Tunachagua ile inayolingana
+    // kikamilifu na wewe (opponent_username = myUsername), na iliyo mpya zaidi.
+    let query = supabase
+      .from(TABLE)
+      .select('*')
+      .eq('username', username)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if(myUsername){
+      query = query.eq('opponent_username', myUsername);
+    }
+
+    const { data, error } = await query;
+    if(error) throw error;
+
+    if(data && data.length > 0) return data[0];
+
+    // Fallback: kama hakuna safu iliyolingana kikamilifu (mfano opponent_username
+    // haikuwekwa kwa sababu fulani), chukua safu ya karibuni zaidi ya jina hilo.
+    if(myUsername){
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from(TABLE)
+        .select('*')
+        .eq('username', username)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if(fallbackError) throw fallbackError;
+      return (fallbackData && fallbackData.length > 0) ? fallbackData[0] : null;
+    }
+
+    return null;
+  }
+
+  async function fetchAvatarUrl(username){
+    if(!username) return null;
+    try{
+      const { data, error } = await supabase
+        .from(PROFILE_TABLE)
+        .select('avatar_url')
+        .eq('username', username)
+        .maybeSingle();
+      if(error) throw error;
+      return (data && data.avatar_url) ? data.avatar_url : null;
+    }catch(e){
+      console.warn('Imeshindikana kupata avatar ya ' + username + ':', e);
+      return null;
+    }
+  }
+
+  function setAvatar(slotEl, imgEl, url){
+    if(url){
+      imgEl.src = url;
+      imgEl.onerror = () => {
+        // Picha imeshindikana kupakia (link imevunjika) -> rudi kwenye placeholder
+        slotEl.classList.remove('has-photo');
+      };
+      slotEl.classList.add('has-photo');
+    } else {
+      imgEl.src = '';
+      slotEl.classList.remove('has-photo');
+    }
+  }
+
+  async function loadAvatars(){
+    const [urlA, urlB] = await Promise.all([
+      fetchAvatarUrl(myRow ? myRow.username : null),
+      fetchAvatarUrl(opponentRow ? opponentRow.username : null)
+    ]);
+    setAvatar(avatarSlotA, avatarImgA, urlA);
+    setAvatar(avatarSlotB, avatarImgB, urlB);
+  }
+
+  function teardownChannels(){
+    if(channelA){ supabase.removeChannel(channelA); channelA = null; }
+    if(channelB){ supabase.removeChannel(channelB); channelB = null; }
+  }
+
+  function subscribeRealtime(){
+    teardownChannels();
+
+    channelA = supabase.channel('row-a-' + myRow.id)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: TABLE,
+        filter: `id=eq.${myRow.id}`
+      }, (payload) => {
+        if(payload.eventType === 'DELETE') return;
+        myRow = payload.new;
+        renderRows();
+      })
+      .subscribe();
+
+    if(opponentRow){
+      channelB = supabase.channel('row-b-' + opponentRow.id)
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: TABLE,
+          filter: `id=eq.${opponentRow.id}`
+        }, (payload) => {
+          if(payload.eventType === 'DELETE') return;
+          opponentRow = payload.new;
+          renderRows();
+        })
+        .subscribe();
+    }
+  }
+
+  async function loadMatch(){
+    if(!currentUser){
+      setJoinStatus('Tafadhali login kwanza.', 'error');
+      setTimeout(() => { window.location.href = 'login.html'; }, 1200);
+      return;
+    }
+
+    if(!currentMatch || !currentMatch.rowId){
+      setJoinStatus('Hakuna mechi iliyopatikana. Rudi kwenye Quick Match kutafuta mpinzani.', 'error');
+      return;
+    }
+
+    setJoinStatus('Inapakia mechi...', 'loading');
+
+    try{
+      const row = await fetchRowById(currentMatch.rowId);
+      if(!row){
+        setJoinStatus('Mechi hii haipo tena.', 'error');
+        return;
+      }
+
+      myRow = row;
+      opponentRow = null;
+
+      const opponentUsername = myRow.opponent_username || currentMatch.opponent;
+      if(opponentUsername){
+        try{
+          opponentRow = await fetchRowByUsername(opponentUsername, myRow.username);
+        }catch(e){
+          console.warn('Imeshindikana kupata mpinzani:', e && e.message ? e.message : e);
+        }
+      }
+
+      renderRows();
+      subscribeRealtime();
+      loadAvatars(); // haizuii UI kuonekana; picha zinajaza pale zitapopatikana
+
+      joinPanel.style.display = 'none';
+      matchCard.style.display = 'block';
+      uploadSection.style.display = 'block';
+      setJoinStatus('', '');
+    }catch(err){
+      console.error(err);
+      setJoinStatus('Hitilafu: ' + err.message, 'error');
+    }
+  }
+
+  loadMatch();
+
+  backToQuickMatchBtn.addEventListener('click', () => {
+    teardownChannels();
+    window.location.href = 'quickmatch.html';
+  });
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files && fileInput.files[0]) {
+      fileName.textContent = "Faili imechaguliwa: " + fileInput.files[0].name;
+    } else {
+      fileName.textContent = "";
+    }
+  });
+
+  uploadBtn.addEventListener('click', async () => {
+    if(!myRow){
+      setUploadStatus('Pakia mechi kwanza.', 'error');
+      return;
+    }
+    const file = fileInput.files && fileInput.files[0];
+    if(!file){
+      setUploadStatus('Tafadhali chagua picha ya matokeo kwanza.', 'error');
+      return;
+    }
+
+    uploadBtn.disabled = true;
+    setUploadStatus('Inapakia picha...', '');
+
+    try{
+      const ext = file.name.split('.').pop();
+      const path = `${myRow.room_code}/${Date.now()}.${ext}`;
+
+      const { error: uploadError } = await supabase
+        .storage
+        .from(BUCKET)
+        .upload(path, file, { upsert: true });
+
+      if(uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase
+        .storage
+        .from(BUCKET)
+        .getPublicUrl(path);
+
+      const screenshotUrl = publicUrlData.publicUrl;
+
+      const { error: updateError } = await supabase
+        .from(TABLE)
+        .update({ screenshot_url: screenshotUrl })
+        .eq('id', myRow.id);
+
+      if(updateError) throw updateError;
+
+      myRow.screenshot_url = screenshotUrl;
+      setUploadStatus('Matokeo yamepakiwa kikamilifu!', 'ok');
+    }catch(err){
+      console.error(err);
+      setUploadStatus('Hitilafu: ' + err.message, 'error');
+    }finally{
+      uploadBtn.disabled = false;
+    }
+  });
+</script>
+
+</body>
+</html>
