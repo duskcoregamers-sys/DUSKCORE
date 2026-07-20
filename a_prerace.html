@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quick Race — Pre-Race</title>
+<style>
+  :root{
+    --ink:#0b0d14;
+    --panel:#12151f;
+    --line:#242938;
+    --p1:#3ee6d0;      /* player 1 — cyan */
+    --p1-dim:#1a4a45;
+    --p2:#ff4d8d;      /* player 2 — magenta */
+    --p2-dim:#4a1a30;
+    --volt:#f4d03f;    /* bolt / accent */
+    --paper:#e9ecf5;
+    --muted:#7b8299;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(circle at 50% 0%, #1a1f2e 0%, var(--ink) 55%);
+    color:var(--paper);
+    font-family:'Courier New', ui-monospace, monospace;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:28px 16px;
+  }
+
+  .arena{
+    width:100%;
+    max-width:640px;
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+  }
+
+  /* ---------- Heading ---------- */
+  .heading{
+    position:relative;
+    border:2px solid var(--line);
+    background:linear-gradient(180deg,#161a26,#10131c);
+    border-radius:10px;
+    padding:14px 18px;
+    display:flex;
+    align-items:baseline;
+    justify-content:center;
+    gap:10px;
+    overflow:hidden;
+  }
+  .heading::before{
+    content:"";
+    position:absolute; inset:0;
+    background:repeating-linear-gradient(115deg, rgba(244,208,63,0.06) 0 2px, transparent 2px 14px);
+    pointer-events:none;
+  }
+  .heading .fmt{
+    font-family:'Impact','Arial Narrow',sans-serif;
+    font-weight:900;
+    letter-spacing:2px;
+    font-size:22px;
+    color:var(--paper);
+    text-transform:uppercase;
+  }
+  .heading .dot{ color:var(--volt); font-size:20px; }
+  .heading .type{
+    font-size:12px;
+    letter-spacing:3px;
+    text-transform:uppercase;
+    color:var(--muted);
+    border:1px solid var(--line);
+    padding:3px 8px;
+    border-radius:20px;
+  }
+
+  .statusline{
+    text-align:center;
+    font-size:11px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin-top:-6px;
+  }
+  .statusline.waiting{ color:var(--volt); }
+  .statusline.error{ color:var(--p2); }
+  .statusline.ready{ color:var(--p1); }
+
+  .side.waiting .username{ color:var(--muted); }
+  .side.waiting .roomrow{ opacity:.5; }
+
+  /* ---------- Duel row (1v1 only) ---------- */
+  .duel{
+    position:relative;
+    display:grid;
+    grid-template-columns:1fr 56px 1fr;
+    align-items:stretch;
+    gap:0;
+  }
+
+  /* ---------- Roster grid (Arena / Team Lobby, 2-8 players) ---------- */
+  .roster{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));
+    gap:10px;
+  }
+  .roster-heading{
+    text-align:center;
+    font-size:11px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin-top:-6px;
+  }
+
+  .pcard{
+    background:var(--panel);
+    border:2px solid var(--line);
+    border-radius:10px;
+    padding:12px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    min-width:0;
+  }
+  .pcard.mine{ border-color:var(--p1-dim); }
+  .pcard.opp{ border-color:var(--p2-dim); }
+  .pcard.ghost{ border-style:dashed; opacity:.5; }
+  .pcard .label{
+    font-size:9px; letter-spacing:2px; color:var(--muted); text-transform:uppercase;
+  }
+  .pcard.mine .label{ color:var(--p1); }
+  .pcard.opp .label{ color:var(--p2); }
+  .pcard .username{
+    font-family:'Impact','Arial Narrow',sans-serif;
+    font-size:16px; letter-spacing:1px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .pcard .roomrow{
+    display:flex; align-items:center; gap:6px;
+    background:#0b0d14; border:1px solid var(--line); border-radius:6px;
+    padding:5px 7px;
+  }
+  .pcard .code{
+    flex:1; font-size:11px; letter-spacing:1px; color:var(--paper);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .pcard .pointsrow{
+    display:flex; align-items:center; justify-content:space-between;
+    font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--muted);
+  }
+  .pcard .pointsrow .val{
+    font-family:'Impact','Arial Narrow',sans-serif; font-size:18px; color:var(--paper);
+  }
+  .pcard.mine .pointsrow .val{ color:var(--p1); }
+  .pcard.opp .pointsrow .val{ color:var(--p2); }
+  .pcard .crownrow{ display:flex; align-items:center; gap:6px; }
+  .pcard .crownrow .crown{ width:18px; height:18px; opacity:.18; }
+  .pcard .crownrow .crown.active{ opacity:1; filter:drop-shadow(0 0 5px rgba(244,208,63,0.7)); }
+  .pcard .crownrow .crown-tag{ font-size:8px; letter-spacing:1px; color:var(--muted); text-transform:uppercase; }
+
+  .side{
+    background:var(--panel);
+    border:2px solid var(--line);
+    border-radius:10px;
+    padding:14px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    min-width:0;
+  }
+  .side.p1{ border-color:var(--p1-dim); box-shadow: inset 0 0 0 1px transparent; }
+  .side.p2{ border-color:var(--p2-dim); }
+
+  .side .label{
+    font-size:10px;
+    letter-spacing:2px;
+    color:var(--muted);
+    text-transform:uppercase;
+  }
+  .side.p1 .label{ color:var(--p1); }
+  .side.p2 .label{ color:var(--p2); }
+
+  .username{
+    font-family:'Impact','Arial Narrow',sans-serif;
+    font-size:20px;
+    letter-spacing:1px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .side.p2 .username{ text-align:right; }
+
+  .roomrow{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    background:#0b0d14;
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:6px 8px;
+  }
+  .side.p2 .roomrow{ flex-direction:row-reverse; }
+  .roomrow .code{
+    flex:1;
+    font-size:13px;
+    letter-spacing:2px;
+    color:var(--paper);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .side.p2 .roomrow .code{ text-align:right; }
+  .copybtn{
+    background:transparent;
+    border:1px solid var(--line);
+    color:var(--muted);
+    font-family:inherit;
+    font-size:10px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    padding:4px 7px;
+    border-radius:5px;
+    cursor:pointer;
+    transition:border-color .15s, color .15s;
+  }
+  .copybtn:hover{ color:var(--paper); border-color:var(--paper); }
+  .copybtn.copied{ color:var(--volt); border-color:var(--volt); }
+
+  /* ---------- Bolt ---------- */
+  .bolt-col{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .bolt{
+    width:42px; height:110px;
+    filter:drop-shadow(0 0 10px rgba(244,208,63,0.55));
+    animation:flicker 2.6s ease-in-out infinite;
+  }
+  @keyframes flicker{
+    0%,100%{ opacity:1; }
+    48%{ opacity:1; }
+    50%{ opacity:.55; }
+    52%{ opacity:1; }
+  }
+
+  /* ---------- Points + Crown ---------- */
+  .stats{
+    display:grid;
+    grid-template-columns:1fr 56px 1fr;
+    align-items:start;
+  }
+  .statcol{ display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .statcol.right{ }
+
+  .pointsbox{
+    width:100%;
+    border:2px solid var(--line);
+    border-radius:12px;
+    background:var(--panel);
+    text-align:center;
+    padding:10px 6px 12px;
+  }
+  .pointsbox .lbl{ font-size:10px; letter-spacing:2px; color:var(--muted); text-transform:uppercase; }
+  .pointsbox .val{ font-family:'Impact','Arial Narrow',sans-serif; font-size:30px; margin-top:2px; }
+  .statcol.left .pointsbox{ border-color:var(--p1-dim); }
+  .statcol.left .val{ color:var(--p1); }
+  .statcol.right .pointsbox{ border-color:var(--p2-dim); }
+  .statcol.right .val{ color:var(--p2); }
+
+  .crownwrap{ display:flex; flex-direction:column; align-items:center; gap:4px; min-height:46px; justify-content:flex-start; }
+  .crown{ width:26px; height:26px; opacity:0.18; transition:opacity .2s, filter .2s; }
+  .crown.active{ opacity:1; filter:drop-shadow(0 0 6px rgba(244,208,63,0.7)); }
+  .crown-tag{ font-size:9px; letter-spacing:1.5px; color:var(--muted); text-transform:uppercase; }
+
+  /* ---------- Screenshot ---------- */
+  .capture{
+    border:2px dashed var(--line);
+    border-radius:12px;
+    background:var(--panel);
+    padding:20px 16px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:10px;
+    cursor:pointer;
+    transition:border-color .15s, background .15s;
+    text-align:center;
+  }
+  .capture:hover{ border-color:var(--volt); background:#151a26; }
+  .capture.filled{ border-style:solid; border-color:var(--p1); }
+  .capicon{
+    width:44px; height:44px;
+    border:2px solid var(--muted);
+    border-radius:9px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .capicon svg{ width:22px; height:22px; }
+  .captext{ font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); }
+  .capture input{ display:none; }
+  .preview{
+    max-width:100%;
+    max-height:160px;
+    border-radius:8px;
+    border:1px solid var(--line);
+    display:none;
+  }
+  .preview.show{ display:block; }
+
+  /* ---------- CTA ---------- */
+  .go{
+    border:none;
+    border-radius:10px;
+    padding:14px;
+    font-family:'Impact','Arial Narrow',sans-serif;
+    font-size:18px;
+    letter-spacing:3px;
+    text-transform:uppercase;
+    color:var(--ink);
+    background:linear-gradient(90deg, var(--p1), var(--volt) 50%, var(--p2));
+    cursor:pointer;
+  }
+  .go:active{ transform:translateY(1px); }
+  .go:disabled{
+    background:var(--panel);
+    color:var(--muted);
+    cursor:not-allowed;
+    border:2px solid var(--line);
+  }
+
+  @media (max-width:420px){
+    .username{ font-size:16px; }
+    .pointsbox .val{ font-size:24px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="arena">
+
+  <!-- HEADING: format + type -->
+  <div class="heading">
+    <span class="fmt" id="fmtLabel">Sprint</span>
+    <span class="dot">&#9679;</span>
+    <span class="type" id="typeLabel">Ranked</span>
+  </div>
+  <div class="statusline" id="statusLine">Loading race…</div>
+
+  <!-- DUEL ROW (1v1 only) -->
+  <div id="duelWrap">
+  <div class="duel">
+    <div class="side p1">
+      <span class="label">Player 1</span>
+      <span class="username" id="user1">xX_racer_Xx</span>
+      <div class="roomrow">
+        <span class="code" id="room1">RC-7F3K9</span>
+        <button class="copybtn" data-target="room1" onclick="copyCode(this)">Copy</button>
+      </div>
+    </div>
+
+    <div class="bolt-col">
+      <svg class="bolt" viewBox="0 0 42 110" fill="none">
+        <path d="M27 2 L6 62 L20 62 L14 108 L38 46 L23 46 Z"
+              fill="var(--volt)" stroke="#3a3510" stroke-width="1.5" stroke-linejoin="round"/>
+      </svg>
+    </div>
+
+    <div class="side p2">
+      <span class="label">Player 2</span>
+      <span class="username" id="user2">nova.driftz</span>
+      <div class="roomrow">
+        <span class="code" id="room2">RC-7F3K9</span>
+        <button class="copybtn" data-target="room2" onclick="copyCode(this)">Copy</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- POINTS + CROWN -->
+  <div class="stats">
+    <div class="statcol left">
+      <div class="pointsbox">
+        <div class="lbl">Points · Initial</div>
+        <div class="val" id="points1">0</div>
+      </div>
+      <div class="crownwrap">
+        <svg class="crown" id="crown1" viewBox="0 0 24 24" fill="none">
+          <path d="M3 8l4 3 5-6 5 6 4-3-2 10H5L3 8z" fill="var(--volt)"/>
+        </svg>
+        <span class="crown-tag">Appears to winner</span>
+      </div>
+    </div>
+
+    <div></div>
+
+    <div class="statcol right">
+      <div class="pointsbox">
+        <div class="lbl">Points · Initial</div>
+        <div class="val" id="points2">0</div>
+      </div>
+      <div class="crownwrap">
+        <svg class="crown" id="crown2" viewBox="0 0 24 24" fill="none">
+          <path d="M3 8l4 3 5-6 5 6 4-3-2 10H5L3 8z" fill="var(--volt)"/>
+        </svg>
+        <span class="crown-tag">Appears to winner</span>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <!-- ROSTER GRID (Arena / Team Lobby — 2 to 8+ players) -->
+  <div id="rosterWrap" style="display:none;">
+    <div class="roster-heading" id="rosterHeading">0 Players Connected</div>
+    <div class="roster" id="roster"></div>
+  </div>
+
+  <!-- SCREENSHOT UPLOAD -->
+  <label class="capture" id="captureBox">
+    <div class="capicon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.8">
+        <path d="M4 8h3l2-2h6l2 2h3v11H4z" stroke-linejoin="round"/>
+        <circle cx="12" cy="13.5" r="3.2"/>
+      </svg>
+    </div>
+    <span class="captext" id="capText">Attach result screenshot</span>
+    <img class="preview" id="preview" alt="Screenshot preview">
+    <input type="file" accept="image/*" id="fileInput" onchange="handleFile(event)">
+  </label>
+
+  <button class="go" id="submitBtn" onclick="submitResult()" disabled>Attach screenshot to submit</button>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  /* ---------------------------------------------------------
+     SUPABASE CONFIG
+  --------------------------------------------------------- */
+  const SUPABASE_URL = "https://ldgnyehqrharqvynohla.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkZ255ZWhxcmhhcnF2eW5vaGxhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMzgzMDcsImV4cCI6MjA5NDYxNDMwN30.80vZuD20je-8VKDJwoy7P2mFYqY9Vcq3nMd9K-pHYBI";
+  const SCREENSHOT_BUCKET = "screenshots"; // create this Storage bucket (public) in Supabase
+
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  /* ---------------------------------------------------------
+     IDENTIFY THE RACE + "ME"
+     Pass these in the URL, e.g.:
+     a_prerace.html?room=RC-7F3K9&id=42
+     - room: the roomcode shared by both quick_race rows
+     - id:   the primary key of *my* row in quick_race
+     If "id" is omitted, the first row fetched is treated as me.
+  --------------------------------------------------------- */
+  const params = new URLSearchParams(window.location.search);
+  const roomcode = params.get('room');
+  const myId = params.get('id') ? Number(params.get('id')) : null;
+
+  let myRow = null;
+  let allRows = [];   // every row sharing this roomcode, myRow included
+  let channel = null;
+
+  const statusLine = document.getElementById('statusLine');
+
+  function setStatus(text, mode){
+    statusLine.textContent = text;
+    statusLine.className = 'statusline' + (mode ? ' ' + mode : '');
+  }
+
+  function crownSvg(active){
+    return `<svg class="crown${active ? ' active' : ''}" viewBox="0 0 24 24" fill="none">
+      <path d="M3 8l4 3 5-6 5 6 4-3-2 10H5L3 8z" fill="var(--volt)"/>
+    </svg>`;
+  }
+
+  function isDuelMode(){
+    const t = (myRow?.type || allRows[0]?.type || '').toLowerCase();
+    return t === '1v1';
+  }
+
+  function renderDuel(){
+    document.getElementById('duelWrap').style.display = '';
+    document.getElementById('rosterWrap').style.display = 'none';
+
+    const oppRow = allRows.find(r => r.id !== myRow?.id) || null;
+
+    document.getElementById('user1').textContent = myRow ? myRow.username : 'Waiting…';
+    document.getElementById('room1').textContent = myRow ? myRow.roomcode : '—';
+    document.getElementById('points1').textContent = myRow ? (myRow.points ?? 0) : 0;
+    document.querySelector('.side.p1').classList.toggle('waiting', !myRow);
+
+    document.getElementById('user2').textContent = oppRow ? oppRow.username : 'Waiting…';
+    document.getElementById('room2').textContent = oppRow ? oppRow.roomcode : '—';
+    document.getElementById('points2').textContent = oppRow ? (oppRow.points ?? 0) : 0;
+    document.querySelector('.side.p2').classList.toggle('waiting', !oppRow);
+
+    document.getElementById('crown1').classList.toggle('active', myRow?.results === 'win');
+    document.getElementById('crown2').classList.toggle('active', oppRow?.results === 'win');
+
+    if (!roomcode){
+      setStatus('No room code provided in URL (?room=CODE)', 'error');
+    } else if (!oppRow){
+      setStatus('Waiting for opponent to join room ' + roomcode + '…', 'waiting');
+    } else {
+      setStatus('Opponent connected — ready to race', 'ready');
+    }
+  }
+
+  function renderGrid(){
+    document.getElementById('duelWrap').style.display = 'none';
+    document.getElementById('rosterWrap').style.display = '';
+
+    const type = (myRow?.type || allRows[0]?.type || '').toLowerCase();
+    const isArena = type === 'lobby';
+    const minTarget = isArena ? 4 : Math.max(allRows.length, 2); // arena waits for 4-8; friends lobby just shows who's in
+
+    const cards = allRows.map(row => {
+      const mine = myRow && row.id === myRow.id;
+      return `
+        <div class="pcard ${mine ? 'mine' : 'opp'}">
+          <span class="label">${mine ? 'You' : 'Player'}</span>
+          <span class="username">${row.username}</span>
+          <div class="roomrow">
+            <span class="code">${row.roomcode}</span>
+            ${mine ? `<button class="copybtn" onclick="copyRoomcodeText('${row.roomcode}', this)">Copy</button>` : ''}
+          </div>
+          <div class="pointsrow"><span>Points</span><span class="val">${row.points ?? 0}</span></div>
+          <div class="crownrow">${crownSvg(row.results === 'win')}<span class="crown-tag">Winner</span></div>
+        </div>`;
+    });
+
+    // Pad with ghost "waiting" slots while an arena lobby is still filling up
+    const ghostsNeeded = Math.max(0, minTarget - allRows.length);
+    for (let i = 0; i < ghostsNeeded; i++){
+      cards.push(`
+        <div class="pcard ghost">
+          <span class="label">Slot ${allRows.length + i + 1}</span>
+          <span class="username">Waiting…</span>
+        </div>`);
+    }
+
+    document.getElementById('roster').innerHTML = cards.join('');
+
+    const label = isArena ? 'Arena Lobby' : 'Crew Race';
+    document.getElementById('rosterHeading').textContent =
+      `${label} — ${allRows.length}${isArena ? '/4-8' : ''} Players Connected`;
+
+    if (!roomcode){
+      setStatus('No room code provided in URL (?room=CODE)', 'error');
+    } else if (isArena && allRows.length < 4){
+      setStatus('Waiting for more players to join…', 'waiting');
+    } else {
+      setStatus('Lineup ready — race can begin', 'ready');
+    }
+  }
+
+  function render(){
+    const headingSource = myRow || allRows[0];
+    document.getElementById('fmtLabel').textContent = headingSource?.format || '—';
+    document.getElementById('typeLabel').textContent = headingSource?.type || '—';
+
+    if (isDuelMode()){
+      renderDuel();
+    } else {
+      renderGrid();
+    }
+
+    if (myRow?.screenshot_url){
+      const preview = document.getElementById('preview');
+      preview.src = myRow.screenshot_url;
+      preview.classList.add('show');
+      document.getElementById('capText').textContent = 'Screenshot attached';
+      document.getElementById('captureBox').classList.add('filled');
+
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = false;
+      btn.textContent = 'Submit Result';
+    }
+  }
+
+  async function loadRace(){
+    if (!roomcode){
+      render();
+      return;
+    }
+    const { data, error } = await sb
+      .from('quick_race')
+      .select('*')
+      .eq('roomcode', roomcode)
+      .order('id', { ascending: true });
+
+    if (error){
+      console.error(error);
+      setStatus('Failed to load race: ' + error.message, 'error');
+      return;
+    }
+
+    allRows = data || [];
+    myRow = myId ? (allRows.find(r => r.id === myId) || null) : (allRows[0] || null);
+
+    render();
+    subscribeToRoom();
+  }
+
+  function subscribeToRoom(){
+    if (channel) sb.removeChannel(channel);
+    channel = sb
+      .channel('quick_race_room_' + roomcode)
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'quick_race', filter: `roomcode=eq.${roomcode}` },
+        (payload) => {
+          if (payload.eventType === 'DELETE'){
+            allRows = allRows.filter(r => r.id !== payload.old.id);
+          } else if (payload.eventType === 'INSERT'){
+            if (!allRows.find(r => r.id === payload.new.id)) allRows.push(payload.new);
+          } else if (payload.eventType === 'UPDATE'){
+            const idx = allRows.findIndex(r => r.id === payload.new.id);
+            if (idx >= 0) allRows[idx] = payload.new; else allRows.push(payload.new);
+          }
+          allRows.sort((a, b) => a.id - b.id);
+          myRow = myId ? (allRows.find(r => r.id === myId) || null) : myRow;
+          render();
+        }
+      )
+      .subscribe();
+  }
+
+  function copyCode(btn){
+    const code = document.getElementById(btn.dataset.target).textContent;
+    copyRoomcodeText(code, btn);
+  }
+
+  function copyRoomcodeText(code, btn){
+    navigator.clipboard?.writeText(code).catch(()=>{});
+    const original = btn.textContent;
+    btn.textContent = 'Copied';
+    btn.classList.add('copied');
+    setTimeout(()=>{ btn.textContent = original; btn.classList.remove('copied'); }, 1200);
+  }
+
+  async function handleFile(event){
+    const file = event.target.files[0];
+    if(!file) return;
+
+    // Local preview immediately
+    const localUrl = URL.createObjectURL(file);
+    const preview = document.getElementById('preview');
+    preview.src = localUrl;
+    preview.classList.add('show');
+    document.getElementById('capText').textContent = 'Uploading ' + file.name + '…';
+
+    if (!myRow){
+      document.getElementById('capText').textContent = 'Cannot upload — no race row loaded';
+      return;
+    }
+
+    const path = `${roomcode}/${myRow.id}-${Date.now()}-${file.name}`;
+    const { error: uploadError } = await sb.storage.from(SCREENSHOT_BUCKET).upload(path, file, { upsert: true });
+
+    if (uploadError){
+      console.error(uploadError);
+      document.getElementById('capText').textContent = 'Upload failed: ' + uploadError.message;
+      return;
+    }
+
+    const { data: pub } = sb.storage.from(SCREENSHOT_BUCKET).getPublicUrl(path);
+    const publicUrl = pub.publicUrl;
+
+    const { error: updateError } = await sb
+      .from('quick_race')
+      .update({ screenshot_url: publicUrl })
+      .eq('id', myRow.id);
+
+    if (updateError){
+      console.error(updateError);
+      document.getElementById('capText').textContent = 'Saved locally, but DB update failed';
+      return;
+    }
+
+    myRow.screenshot_url = publicUrl;
+    document.getElementById('capText').textContent = 'Screenshot attached';
+    document.getElementById('captureBox').classList.add('filled');
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = false;
+    btn.textContent = 'Submit Result';
+  }
+
+  async function submitResult(){
+    if (!myRow || !myRow.screenshot_url){
+      setStatus('Attach a screenshot before submitting', 'error');
+      return;
+    }
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+
+    const { error } = await sb
+      .from('quick_race')
+      .update({ status: 'expired' }) // race is over once result is submitted
+      .eq('id', myRow.id);
+
+    if (error){
+      console.error(error);
+      setStatus('Failed to submit: ' + error.message, 'error');
+      btn.disabled = false;
+      btn.textContent = 'Submit Result';
+      return;
+    }
+
+    btn.textContent = 'Submitted';
+    setStatus('Result submitted', 'ready');
+  }
+
+  loadRace();
+</script>
+
+</body>
+</html>
