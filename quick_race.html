@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>DUSKCORE Quick Race</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="duskcore logo.jpg">
+
+    <!-- Supabase Integration SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        body{
+            background: #000;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 20px 10px;
+        }
+
+        h2{
+            color: #a020f0;
+            text-shadow: 0 0 8px rgba(160,32,240,0.5);
+        }
+
+        .box{
+            border: 1px solid #a020f0;
+            margin: 15px auto;
+            padding: 15px;
+            border-radius: 10px;
+            max-width: 500px;
+            background: rgba(160, 32, 240, 0.03);
+            box-shadow: 0 0 10px rgba(160,32,240,0.1);
+        }
+
+        .img-btn{
+            width: 100%;
+            max-width: 260px;
+            height: 130px;
+            margin: 10px auto;
+            cursor: pointer;
+            border-radius: 10px;
+            background-size: cover;
+            background-position: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px #000;
+            transition: 0.3s;
+            border: 2px solid #a020f0;
+            box-shadow: 0 0 8px rgba(160,32,240,0.3);
+        }
+
+        .img-btn:hover{
+            transform: scale(1.03);
+            box-shadow: 0 0 20px #a020f0;
+        }
+
+        button{
+            padding: 10px 20px;
+            margin: 8px 5px;
+            background: #a020f0;
+            border: none;
+            color: black;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        button:hover {
+            background: #bd40ff;
+            transform: translateY(-1px);
+        }
+
+        input, select{
+            padding: 12px;
+            margin: 6px;
+            width: 85%;
+            border-radius: 6px;
+            border: 1px solid #a020f0;
+            background: #111;
+            color: white;
+            outline: none;
+        }
+
+        .wallet-box{
+            border: 1px solid #a020f0;
+            padding: 15px;
+            margin: 10px auto;
+            border-radius: 10px;
+            max-width: 500px;
+            background: rgba(160, 32, 240, 0.05);
+        }
+
+        .coins{
+            display: flex;
+            justify-content: space-around;
+        }
+
+        .coin{
+            border: 1px solid rgba(160,32,240,0.4);
+            padding: 10px 20px;
+            border-radius: 8px;
+            background: #0a0a0a;
+            font-weight: bold;
+            min-width: 80px;
+        }
+
+        .player-list {
+            background: rgba(255,255,255,0.05);
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px auto;
+            max-width: 85%;
+            text-align: left;
+        }
+        
+        .dashboard-btn {
+            display: inline-block;
+            margin-top: 20px;
+            color: #a020f0;
+            text-decoration: none;
+            font-weight: bold;
+            border-bottom: 1px dashed #a020f0;
+        }
+    </style>
+</head>
+
+<body>
+
+<h2>🏁 QUICK RACE</h2>
+
+<!-- WALLET LIVE BALANCES -->
+<div class="wallet-box">
+    <h3>DUSKCOIN WALLET</h3>
+    <div class="coins">
+        <div class="coin">🔴 <span id="red">...</span></div>
+        <div class="coin">🔵 <span id="blue">...</span></div>
+        <div class="coin">🟣 <span id="super">...</span></div>
+    </div>
+</div>
+
+<!-- ================= NOTIFICATIONS ================= -->
+<div class="box" id="notifBox" style="display:none;">
+    <h3>🔔 Notifications</h3>
+    <div id="notifList"></div>
+</div>
+
+<!-- ================= UNKNOWN MATCHMAKING ================= -->
+<div class="box">
+    <h2>A: Race with Unknown Player</h2>
+    <div class="img-btn" onclick="openUnknown()" style="background-image:linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url('unknown.jpg')">
+        UNKNOWN LOBBY
+    </div>
+
+    <div id="unknownBox" style="display:none; margin-top:15px;">
+        <h3>1v1 Match</h3>
+        <div class="img-btn" onclick="show1v1()" style="background-image:linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url('1v1.jpg')">LAUNCH 1V1</div>
+        <div id="one1v1"></div>
+
+        <h3 style="margin-top: 20px;">Multiplayer Arena</h3>
+        <!-- HAPA TUMEREKEBISHA ILE BROKEN TAG ILIYOKUWA INAHARIBU MFUMO -->
+        <div class="img-btn" onclick="showMulti()" style="background-image:linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url('multi.jpg')">LAUNCH MULTIPLAYER</div>
+        <div id="multi"></div>
+    </div>
+</div>
+
+<!-- ================= FRIENDS CHALLENGE ================= -->
+<div class="box">
+    <h2>B: Race with Friends</h2>
+    <div class="img-btn" onclick="openFriends()" style="background-image:linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url('friends.jpg')">
+        FRIENDS ROOM
+    </div>
+
+    <div id="friendsBox" style="display:none; margin-top:15px;">
+        <h3>1v1 Invite</h3>
+        <div class="img-btn" onclick="friend1v1()" style="background-image:linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url('f1v1.jpg')">CREATE 1V1 PARTY</div>
+        <div id="f1v1"></div>
+
+        <h3 style="margin-top: 20px;">Multiplayer Invite</h3>
+        <div class="img-btn" onclick="friendMulti()" style="background-image:linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url('fmulti.jpg')">CREATE TEAM LOBBY</div>
+        <div id="fmulti"></div>
+    </div>
+</div>
+
+<br>
+<a href="dashboard.html" class="dashboard-btn">◀ Back to Dashboard</a>
+
+<script>
+// Supabase Configuration
+const supabaseUrl = "https://ldgnyehqrharqvynohla.supabase.co";
+const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkZ255ZWhxcmhhcnF2eW5vaGxhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMzgzMDcsImV4cCI6MjA5NDYxNDMwN30.80vZuD20je-8VKDJwoy7P2mFYqY9Vcq3nMd9K-pHYBI";
+const supabaseClient = supabase.createClient(supabaseUrl, supabaseAnonKey);
+
+const dbColumns = { red: 'red_coins', blue: 'blue_coins', super: 'super_coins' };
+let currentUser = localStorage.getItem("dusk_username");
+
+// Kupakia salio halisi kutoka Supabase
+async function loadLiveWallet(){
+    if(!currentUser) {
+        alert("Tafadhali nenda kalogin kwanza!");
+        window.location.href = "login.html";
+        return;
+    }
+    try {
+        let { data: profile, error } = await supabaseClient
+            .from('user_profile')
+            .select('red_coins, blue_coins, super_coins')
+            .eq('username', currentUser)
+            .single();
+            
+        if(error) throw error;
+        if(profile) {
+            document.getElementById("red").innerText = profile.red_coins || 0;
+            document.getElementById("blue").innerText = profile.blue_coins || 0;
+            document.getElementById("super").innerText = profile.super_coins || 0;
+        }
+    } catch(err) {
+        console.error("Salio limeshindwa kuload:", err.message);
+    }
+}
+
+// Logic ya kukata coin moja kwa moja kwenye Supabase
+async function useCoin(type){
+    try {
+        let { data: profile, error } = await supabaseClient
+            .from('user_profile')
+            .select('red_coins, blue_coins, super_coins')
+            .eq('username', currentUser)
+            .single();
+
+        if (error || !profile) throw new Error("Akaunti haikupatikana.");
+
+        let targetCol = dbColumns[type];
+        let currentBalance = Number(profile[targetCol] || 0);
+
+        if(currentBalance <= 0){ 
+            alert(`Huna coin ya kutosha ya aina ya ${type.toUpperCase()}!`); 
+            return false; 
+        }
+
+        let updateData = {};
+        updateData[targetCol] = currentBalance - 1;
+
+        let { error: updateErr } = await supabaseClient
+            .from('user_profile')
+            .update(updateData)
+            .eq('username', currentUser);
+
+        if(updateErr) throw updateErr;
+
+        await loadLiveWallet(); // Update muonekano mara moja
+        return true;
+    } catch(e) {
+        alert("Muamala umefeli: " + e.message);
+        return false;
+    }
+}
+
+/* FUNGUA LOBBIES */
+function openUnknown(){ document.getElementById("unknownBox").style.display="block"; }
+function openFriends(){ document.getElementById("friendsBox").style.display="block"; }
+
+/* =========================================================
+   HELPERS shared across all 4 flows
+   ========================================================= */
+
+// Insert a fresh quick_race row for the current user
+async function createRaceRow(fields){
+    const base = {
+        username: currentUser,
+        status: 'pending',
+        opponentusername: 'pending',
+        points: 0,
+        screenshot_url: null,
+        results: null,
+        invt: 'none'
+    };
+    const row = { ...base, ...fields };
+    const { data, error } = await supabaseClient
+        .from('quick_race')
+        .insert([row])
+        .select()
+        .single();
+    if(error){ console.error(error); alert("Imeshindwa kuunda rekodi: " + error.message); return null; }
+    return data;
+}
+
+async function updateRaceRow(id, fields){
+    const { error } = await supabaseClient.from('quick_race').update(fields).eq('id', id);
+    if(error){ console.error(error); alert("Imeshindwa ku-update: " + error.message); }
+    return !error;
+}
+
+// Host generates the roomcode immediately at invite time, so the host
+// can go straight to a_prerace.html and wait there — instead of waiting
+// on this page for the guest to pick a code later.
+function genRoomCode(){
+    return 'RM-' + Math.random().toString(36).substring(2, 7).toUpperCase();
+}
+
+/* =========================================================
+   A/i — 1v1 UNKNOWN MATCH
+   ========================================================= */
+let myUnknown1v1Row = null;
+let unknown1v1Channel = null;
+
+function show1v1(){
+    document.getElementById("one1v1").innerHTML=`
+        <input id="roomCode" placeholder="Enter Room Code (e.g. RM-99)">
+        <select id="coinType">
+            <option value="red">Red Coin 🔴</option>
+            <option value="blue">Blue Coin 🔵</option>
+            <option value="super">Super Coin 🟣</option>
+        </select>
+        <button id="searchBtn1" onclick="searchOpponent()">Search Opponent</button>
+        <div id="opponent" style="margin-top:10px;"></div>
+    `;
+}
+
+async function searchOpponent(){
+    let code = document.getElementById("roomCode").value.trim();
+    let coinType = document.getElementById("coinType").value;
+    if(!code) { alert("Weka Room Code kwanza!"); return; }
+
+    let btn = document.getElementById("searchBtn1");
+    btn.disabled = true; btn.innerText = "Searching...";
+
+    // 1. Create my own pending row
+    myUnknown1v1Row = await createRaceRow({
+        roomcode: code, format: 'unknown', type: '1v1', coins: coinType
+    });
+    if(!myUnknown1v1Row){ btn.disabled = false; btn.innerText = "Search Opponent"; return; }
+
+    // 2. Look for someone else already waiting with the same coin/format/type
+    const { data: candidates, error } = await supabaseClient
+        .from('quick_race')
+        .select('*')
+        .eq('format', 'unknown')
+        .eq('type', '1v1')
+        .eq('coins', coinType)
+        .eq('status', 'pending')
+        .neq('username', currentUser)
+        .order('id', { ascending: true })
+        .limit(1);
+
+    if(error){ console.error(error); }
+
+    if(candidates && candidates.length > 0){
+        await connectUnknown1v1(candidates[0]);
+    } else {
+        document.getElementById("opponent").innerHTML = `<div class="player-list">⏳ Waiting for an opponent (${coinType.toUpperCase()} coin, Room ${code})...</div>`;
+        listenForUnknown1v1Match();
+    }
+    btn.disabled = false; btn.innerText = "Search Opponent";
+}
+
+async function connectUnknown1v1(opponentRow){
+    // Canonical roomcode = whichever row was created first
+    const roomcode = opponentRow.id < myUnknown1v1Row.id ? opponentRow.roomcode : myUnknown1v1Row.roomcode;
+
+    await updateRaceRow(myUnknown1v1Row.id, {
+        status: 'connected', opponentusername: opponentRow.username, roomcode
+    });
+    await updateRaceRow(opponentRow.id, {
+        status: 'connected', opponentusername: currentUser, roomcode
+    });
+
+    document.getElementById("opponent").innerHTML = `
+        <div class="player-list">
+            📌 Match Found!<br>
+            <b>Room:</b> ${roomcode}<br>
+            <b>Opponent:</b> ${opponentRow.username} <span style="color:#00ffcc;">[Online]</span>
+        </div>
+        <button id="admitBtn1" onclick="admit1('${opponentRow.username}', '${roomcode}')">Confirm & Pay 1 Coin</button>
+    `;
+}
+
+function listenForUnknown1v1Match(){
+    if(unknown1v1Channel) supabaseClient.removeChannel(unknown1v1Channel);
+    unknown1v1Channel = supabaseClient
+        .channel('unknown_1v1_' + myUnknown1v1Row.id)
+        .on('postgres_changes',
+            { event: 'UPDATE', schema: 'public', table: 'quick_race', filter: `id=eq.${myUnknown1v1Row.id}` },
+            (payload) => {
+                if(payload.new.status === 'connected'){
+                    document.getElementById("opponent").innerHTML = `
+                        <div class="player-list">
+                            📌 Match Found!<br>
+                            <b>Room:</b> ${payload.new.roomcode}<br>
+                            <b>Opponent:</b> ${payload.new.opponentusername} <span style="color:#00ffcc;">[Online]</span>
+                        </div>
+                        <button id="admitBtn1" onclick="admit1('${payload.new.opponentusername}', '${payload.new.roomcode}')">Confirm & Pay 1 Coin</button>
+                    `;
+                    supabaseClient.removeChannel(unknown1v1Channel);
+                }
+            }
+        )
+        .subscribe();
+}
+
+async function admit1(opponentName, roomCode){
+    let type = document.getElementById("coinType").value;
+    let btn = document.getElementById("admitBtn1");
+    btn.disabled = true; btn.innerText = "Processing...";
+
+    let success = await useCoin(type);
+    if(success) {
+        await supabaseClient.from('community_chat').insert([{
+            category: 'General',
+            user_name: '🏁 QUICK RACE',
+            text: `Mchezaji [ ${currentUser} ] ameingia 1v1 Race dhidi ya [ ${opponentName} ] katika Room [ ${roomCode} ] kwa dau la 1 ${type.toUpperCase()} Coin!`
+        }]);
+        alert("🎉 Imethibitishwa! Unajiunga kwenye mbio sasa hivi.");
+        window.location.href = `a_prerace.html?room=${encodeURIComponent(roomCode)}&id=${myUnknown1v1Row.id}`;
+    } else {
+        btn.disabled = false; btn.innerText = "Confirm & Pay 1 Coin";
+    }
+}
+
+/* =========================================================
+   A/ii — MULTIPLAYER ARENA (4-8 players, 30s window)
+   ========================================================= */
+let myArenaRow = null;
+
+function showMulti(){
+    document.getElementById("multi").innerHTML=`
+        <input id="multiRoomCode" placeholder="Enter Multi-Room Code">
+        <select id="coinTypeM">
+            <option value="red">Red Coin 🔴</option>
+            <option value="blue">Blue Coin 🔵</option>
+            <option value="super">Super Coin 🟣</option>
+        </select>
+        <button id="searchBtnM" onclick="searchMulti()">Find Active Lobby</button>
+        <div id="multiPlayers" style="margin-top:10px;"></div>
+    `;
+}
+
+async function searchMulti(){
+    let code = document.getElementById("multiRoomCode").value.trim();
+    let coinType = document.getElementById("coinTypeM").value;
+    if(!code) { alert("Weka Lobby/Room Code!"); return; }
+
+    let btn = document.getElementById("searchBtnM");
+    btn.disabled = true; btn.innerText = "Searching...";
+
+    myArenaRow = await createRaceRow({
+        roomcode: code, format: 'unknown', type: 'lobby', coins: coinType
+    });
+    if(!myArenaRow){ btn.disabled = false; btn.innerText = "Find Active Lobby"; return; }
+
+    document.getElementById("multiPlayers").innerHTML = `<div class="player-list">⏳ Searching for 4-8 players (${coinType.toUpperCase()} coin)... 30s window open.</div>`;
+
+    // Wait 30 seconds, then see who's in the pool with us
+    setTimeout(() => resolveArenaLobby(coinType), 30000);
+}
+
+async function resolveArenaLobby(coinType){
+    const { data: pool, error } = await supabaseClient
+        .from('quick_race')
+        .select('*')
+        .eq('format', 'unknown')
+        .eq('type', 'lobby')
+        .eq('coins', coinType)
+        .eq('status', 'pending')
+        .order('id', { ascending: true });
+
+    if(error){ console.error(error); return; }
+
+    const group = pool.filter(r => r.id === myArenaRow.id || (r.status === 'pending'));
+    const count = group.length;
+
+    if(count >= 4 && count <= 8){
+        const canonicalRoomcode = group[0].roomcode; // earliest row's roomcode wins
+        for(const row of group){
+            const others = group.filter(r => r.id !== row.id).map(r => r.username).join(', ');
+            await updateRaceRow(row.id, { status: 'connected', opponentusername: others, roomcode: canonicalRoomcode });
+        }
+        renderArenaResult(group, canonicalRoomcode, true);
+    } else {
+        for(const row of group){
+            await updateRaceRow(row.id, { status: 'expired' });
+        }
+        renderArenaResult(group, null, false);
+    }
+}
+
+function renderArenaResult(group, roomcode, success){
+    if(success){
+        let list = group.map(r => `🔹 ${r.username}${r.username === currentUser ? ' (you)' : ''} <span style="color:#00ffcc;font-size:11px;">[Connected]</span>`).join('<br>');
+        document.getElementById("multiPlayers").innerHTML = `
+            <div class="player-list"><b>Lobby Connected (${roomcode}):</b><br>${list}</div>
+            <button id="admitBtnM" onclick="admitMulti('${roomcode}')">Join Grid & Pay 1 Coin</button>
+        `;
+    } else {
+        document.getElementById("multiPlayers").innerHTML = `
+            <div class="player-list" style="color:#ff3333;">⌛ Not enough players joined (needed 4-8, got ${group.length}). Lobby expired — try again.</div>
+        `;
+    }
+}
+
+async function admitMulti(roomCode){
+    let type = document.getElementById("coinTypeM").value;
+    let btn = document.getElementById("admitBtnM");
+    btn.disabled = true; btn.innerText = "Joining...";
+
+    let success = await useCoin(type);
+    if(success) {
+        await supabaseClient.from('community_chat').insert([{
+            category: 'General',
+            user_name: '🏁 QUICK RACE',
+            text: `Mchezaji [ ${currentUser} ] amejiunga kwenye Multiplayer Grid katika Lobby [ ${roomCode} ] kwa kutumia 1 ${type.toUpperCase()} Coin!`
+        }]);
+        alert("🏁 Umefanikiwa kuingia kwenye Grid! Mbio zinaanza...");
+        window.location.href = `a_prerace.html?room=${encodeURIComponent(roomCode)}&id=${myArenaRow.id}`;
+    } else {
+        btn.disabled = false; btn.innerText = "Join Grid & Pay 1 Coin";
+    }
+}
+
+/* =========================================================
+   B/i — FRIENDS 1v1 INVITE
+   ========================================================= */
+function friend1v1(){
+    document.getElementById("f1v1").innerHTML=`
+        <input id="guest" placeholder="Enter Friend's DUSKCODE / Username">
+        <select id="coinF">
+            <option value="red">Red Coin 🔴</option>
+            <option value="blue">Blue Coin 🔵</option>
+            <option value="super">Super Coin 🟣</option>
+        </select>
+        <button id="invBtn" onclick="inviteFriend()">Send Invite</button>
+        <div id="inv" style="margin-top:10px;"></div>
+    `;
+}
+
+async function inviteFriend(){
+    let friendName = document.getElementById("guest").value.trim();
+    let type = document.getElementById("coinF").value;
+    let btn = document.getElementById("invBtn");
+
+    if(!friendName) { alert("Weka Jina la Rafiki yako!"); return; }
+    if(friendName.toLowerCase() === currentUser.toLowerCase()) { alert("Huwezi kujialika mwenyewe!"); return; }
+
+    btn.disabled = true; btn.innerText = "Sending...";
+
+    // Confirm the friend actually exists before spending a coin
+    const { data: friendProfile, error: lookupErr } = await supabaseClient
+        .from('user_profile').select('username').eq('username', friendName).single();
+    if(lookupErr || !friendProfile){
+        alert("Mtumiaji huyo hapatikani. Hakikisha jina ni sahihi.");
+        btn.disabled = false; btn.innerText = "Send Invite"; return;
+    }
+
+    let success = await useCoin(type);
+    if(!success) { btn.disabled = false; btn.innerText = "Send Invite"; return; }
+
+    const code = genRoomCode();
+
+    // Host row — roomcode already fixed, so we can leave for a_prerace.html immediately
+    const hostRow = await createRaceRow({
+        roomcode: code, opponentusername: friendName,
+        format: 'Friends', type: '1v1', invt: 'Host', coins: type
+    });
+
+    // Guest row (auto-created so the friend sees it as a notification) — same roomcode
+    await supabaseClient.from('quick_race').insert([{
+        username: friendName, roomcode: code, status: 'pending',
+        opponentusername: currentUser, points: 0, screenshot_url: null, results: null,
+        format: 'Friends', type: '1v1', invt: 'Guest', coins: type
+    }]);
+
+    await supabaseClient.from('community_chat').insert([{
+        category: 'General',
+        user_name: '⚔️ P2P CHALLENGE',
+        text: `Mchezaji [ ${currentUser} ] amemtumia mwaliko wa LIVE PvP Race mchezaji [ ${friendName} ] kwa dau la 1 ${type.toUpperCase()} Coin!`
+    }]);
+
+    alert(`🚀 Mwaliko umetumwa kwa ${friendName}! Utaelekezwa kwenye chumba chako sasa hivi.`);
+
+    // Go straight to a_prerace.html and wait there — it already shows
+    // "waiting for opponent" and updates live via Realtime once the
+    // guest accepts, no extra listener needed here.
+    window.location.href = `a_prerace.html?room=${encodeURIComponent(code)}&id=${hostRow.id}`;
+}
+
+async function acceptInvite(rowId, roomcode){
+    await updateRaceRow(rowId, { status: 'connected' });
+
+    // Also flip the host's row to connected (same roomcode, already known)
+    await supabaseClient.from('quick_race')
+        .update({ status: 'connected' })
+        .eq('roomcode', roomcode)
+        .eq('invt', 'Host')
+        .eq('status', 'pending');
+
+    window.location.href = `a_prerace.html?room=${encodeURIComponent(roomcode)}&id=${rowId}`;
+}
+
+async function cancelInvite(rowId){
+    await updateRaceRow(rowId, { status: 'expired' });
+    loadNotifications();
+}
+
+/* =========================================================
+   B/ii — FRIENDS MULTIPLAYER INVITE (Team Lobby)
+   ========================================================= */
+function friendMulti(){
+    document.getElementById("fmulti").innerHTML=`
+        <input id="teamMembers" placeholder="Enter Team Member Usernames (comma separated, min 2)">
+        <select id="coinFM">
+            <option value="red">Red Coin 🔴</option>
+            <option value="blue">Blue Coin 🔵</option>
+            <option value="super">Super Coin 🟣</option>
+        </select>
+        <button id="fMultiBtn" onclick="inviteMulti()">Deploy Lobby Invites</button>
+        <div id="fmultiResult" style="margin-top:10px;"></div>
+    `;
+}
+
+async function inviteMulti(){
+    let raw = document.getElementById("teamMembers").value.trim();
+    let names = raw.split(',').map(n => n.trim()).filter(Boolean);
+    let type = document.getElementById("coinFM").value;
+    let btn = document.getElementById("fMultiBtn");
+
+    if(names.length < 2){ alert("Weka angalau majina 2 ya wachezaji (comma separated)."); return; }
+    if(names.some(n => n.toLowerCase() === currentUser.toLowerCase())){ alert("Huwezi kujiweka kwenye orodha yako mwenyewe!"); return; }
+
+    btn.disabled = true; btn.innerText = "Deploying...";
+
+    let success = await useCoin(type);
+    if(!success){ btn.disabled = false; btn.innerText = "Deploy Lobby Invites"; return; }
+
+    const code = genRoomCode();
+
+    // Host row — roomcode already fixed
+    const hostRow = await createRaceRow({
+        roomcode: code, opponentusername: names.join(', '),
+        format: 'Friends', type: 'Multiplayer', invt: 'Host', coins: type
+    });
+
+    // One row per guest — each sees "host + everyone else" as opponentusername.
+    // status starts 'pending' — each guest still needs to accept/cancel.
+    for(const guest of names){
+        const others = [currentUser, ...names.filter(n => n !== guest)].join(', ');
+        await supabaseClient.from('quick_race').insert([{
+            username: guest, roomcode: code, status: 'pending',
+            opponentusername: others, points: null, screenshot_url: null, results: null,
+            format: 'Friends', type: 'Multiplayer', invt: 'Guest', coins: type
+        }]);
+    }
+
+    await supabaseClient.from('community_chat').insert([{
+        category: 'General',
+        user_name: '🏁 QUICK RACE',
+        text: `Mchezaji [ ${currentUser} ] amefungua Team Lobby ya marafiki (${names.join(', ')}) na kuweka dau la 1 ${type.toUpperCase()} Coin!`
+    }]);
+
+    // Go straight to a_prerace.html and wait there as the crew joins in live
+    window.location.href = `a_prerace.html?room=${encodeURIComponent(code)}&id=${hostRow.id}`;
+}
+
+async function acceptCrewInvite(rowId, roomcode){
+    await updateRaceRow(rowId, { status: 'connected' });
+    window.location.href = `a_prerace.html?room=${encodeURIComponent(roomcode)}&id=${rowId}`;
+}
+
+async function cancelCrewInvite(rowId){
+    await updateRaceRow(rowId, { status: 'expired' });
+    loadNotifications();
+}
+
+/* =========================================================
+   NOTIFICATIONS — incoming 1v1 invites + team lobby invites
+   ========================================================= */
+async function loadNotifications(){
+    const notifBox = document.getElementById("notifBox");
+    const notifList = document.getElementById("notifList");
+
+    const { data: rows, error } = await supabaseClient
+        .from('quick_race')
+        .select('*')
+        .eq('username', currentUser)
+        .eq('invt', 'Guest')
+        .eq('format', 'Friends')
+        .order('id', { ascending: false });
+
+    if(error){ console.error(error); return; }
+
+    const pending1v1 = rows.filter(r => r.type === '1v1' && r.status === 'pending');
+    const pendingCrew = rows.filter(r => r.type === 'Multiplayer' && r.status === 'pending');
+
+    if(pending1v1.length === 0 && pendingCrew.length === 0){
+        notifBox.style.display = "none";
+        return;
+    }
+
+    notifBox.style.display = "block";
+    let html = '';
+
+    pending1v1.forEach(r => {
+        html += `
+            <div class="player-list">
+                📩 1v1 Challenge from <b>${r.opponentusername}</b> — Stake: 1 ${r.coins.toUpperCase()} Coin
+                <br>
+                <button onclick="acceptInvite(${r.id}, '${r.roomcode}')">Accept</button>
+                <button onclick="cancelInvite(${r.id})">Cancel</button>
+            </div>`;
+    });
+
+    pendingCrew.forEach(r => {
+        html += `
+            <div class="player-list">
+                👥 Crew Race with <b>${r.opponentusername}</b> — Stake: 1 ${r.coins.toUpperCase()} Coin
+                <br>
+                <button onclick="acceptCrewInvite(${r.id}, '${r.roomcode}')">Accept</button>
+                <button onclick="cancelCrewInvite(${r.id})">Cancel</button>
+            </div>`;
+    });
+
+    notifList.innerHTML = html;
+}
+
+// Kupakia Wallet + Notifications pindi tu ukurasa unapofunguliwa
+window.onload = () => { loadLiveWallet(); loadNotifications(); };
+</script>
+
+</body>
+</html>
