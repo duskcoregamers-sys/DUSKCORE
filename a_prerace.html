@@ -488,7 +488,7 @@
     const oppRow = allRows.find(r => r.id !== myRow?.id) || null;
 
     document.getElementById('user1').textContent = myRow ? myRow.username : 'Waiting…';
-    document.getElementById('room1').textContent = myRow ? myRow.roomcode : '—';
+    document.getElementById('room1').textContent = myRow ? (myRow.roomcode === 'none' ? 'Pending…' : myRow.roomcode) : '—';
     document.getElementById('points1').textContent = myRow ? (myRow.points ?? 0) : 0;
     document.querySelector('.side.p1').classList.toggle('waiting', !myRow);
 
@@ -519,13 +519,14 @@
 
     const cards = allRows.map(row => {
       const mine = myRow && row.id === myRow.id;
+      const codeDisplay = (row.roomcode === 'none' || row.roomcode === 'pending') ? 'Pending…' : row.roomcode;
       return `
         <div class="pcard ${mine ? 'mine' : 'opp'}">
           <span class="label">${mine ? 'You' : 'Player'}</span>
           <span class="username">${row.username}</span>
           <div class="roomrow">
-            <span class="code">${row.roomcode}</span>
-            ${mine ? `<button class="copybtn" onclick="copyRoomcodeText('${row.roomcode}', this)">Copy</button>` : ''}
+            <span class="code">${codeDisplay}</span>
+            ${mine && roomcode ? `<button class="copybtn" onclick="copyRoomcodeText('${row.roomcode}', this)">Copy</button>` : ''}
           </div>
           <div class="pointsrow"><span>Points</span><span class="val">${row.points ?? 0}</span></div>
           <div class="crownrow">${crownSvg(row.results === 'win')}<span class="crown-tag">Winner</span></div>
@@ -583,7 +584,7 @@
 
   async function loadRace(){
     if (!roomcode){
-      render();
+      setStatus('No room code provided in URL (?room=CODE)', 'error');
       return;
     }
     const { data, error } = await sb
