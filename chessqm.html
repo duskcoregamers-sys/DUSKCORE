@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>DUSKCORE - Chess Match</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="duskcore logo.jpg">
+
+  <!-- Supabase Integration SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    body {
+      background: #1b1b1b;
+      color: #e0e0e0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 20px 10px;
+    }
+
+    h2 {
+      color: #7fa650;
+      margin-top: 20px;
+      text-shadow: 0 0 8px rgba(127, 166, 80, 0.4);
+    }
+
+    .box {
+      width: 100%;
+      max-width: 380px;
+      margin: 20px auto;
+      padding: 20px;
+      border-radius: 10px;
+      background: #262626;
+      border: 1px solid #333;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    }
+
+    input, select {
+      width: 100%;
+      padding: 12px;
+      margin: 8px 0;
+      border-radius: 5px;
+      border: 1px solid #444;
+      background: #1b1b1b;
+      color: white;
+      outline: none;
+      box-sizing: border-box;
+    }
+
+    input:focus, select:focus {
+      border-color: #7fa650;
+    }
+
+    button {
+      padding: 12px;
+      margin-top: 10px;
+      background: #7fa650;
+      border: none;
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
+      width: 100%;
+      font-weight: bold;
+      font-size: 15px;
+      transition: 0.2s;
+    }
+
+    button:hover {
+      background: #6b8f45;
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      background: #444;
+      cursor: not-allowed;
+    }
+
+    .cancel-btn {
+      background: #444;
+    }
+
+    .cancel-btn:hover {
+      background: #555;
+    }
+
+    .opponent-box {
+      margin-top: 15px;
+      padding: 15px;
+      border: 1px solid #7fa650;
+      border-radius: 8px;
+      display: none;
+      background: #1f1f1f;
+      animation: fadeIn 0.4s ease;
+    }
+
+    .searching-box {
+      margin-top: 15px;
+      padding: 15px;
+      border: 1px solid #444;
+      border-radius: 8px;
+      display: none;
+      background: #1f1f1f;
+      color: #aaa;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .coins {
+      font-weight: bold;
+      margin-bottom: 20px;
+      color: #ccc;
+      background: rgba(127, 166, 80, 0.1);
+      padding: 10px;
+      border-radius: 6px;
+    }
+
+    .dashboard {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 12px 18px;
+      background: #7fa650;
+      color: white;
+      border-radius: 30px;
+      text-decoration: none;
+      font-weight: bold;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      transition: 0.3s;
+      z-index: 1000;
+    }
+
+    .dashboard:hover {
+      background: #6b8f45;
+      transform: scale(1.05);
+    }
+  </style>
+</head>
+
+<body>
+
+<h2>♟️ QUICK CHESS MATCH</h2>
+
+<div class="box">
+
+  <!-- WALLET LIVE BALANCES -->
+  <p class="coins">
+    🔴 Red: <span id="red">...</span> |
+    🔵 Blue: <span id="blue">...</span> |
+    🟣 Super: <span id="purple">...</span>
+  </p>
+
+  <!-- ROOM CODE -->
+  <input type="text" id="roomCode" placeholder="Enter Match Code (e.g. CH-77)">
+
+  <!-- COIN SELECT -->
+  <select id="coinType">
+    <option value="red">Red Coin 🔴</option>
+    <option value="blue">Blue Coin 🔵</option>
+    <option value="super">Super Coin 🟣</option>
+  </select>
+
+  <button id="findBtn" onclick="searchOpponent()">Find Opponent</button>
+
+  <!-- SEARCHING INDICATOR -->
+  <div class="searching-box" id="searchingBox">
+    <p style="margin: 0 0 10px 0;">🔎 Waiting for another player with the same coin...</p>
+    <button class="cancel-btn" onclick="cancelSearch()">Cancel</button>
+  </div>
+
+  <!-- OPPONENT SHOWCASE -->
+  <div class="opponent-box" id="opponentBox">
+    <h3 style="color: #7fa650; margin-top: 0;">Opponent Found</h3>
+    <p style="margin: 5px 0 5px 0;">Opponent: <span id="opponentName" style="color: #00ffcc; font-weight: bold;"></span></p>
+    <p style="margin: 0 0 15px 0;">Room Code: <span id="opponentCode" style="color: #00ffcc; font-weight: bold;"></span></p>
+
+    <button id="startBtn" onclick="acceptMatch()">Start Game</button>
+  </div>
+
+</div>
+
+<!-- DASHBOARD LINK -->
+<a class="dashboard" href="dashboard.html">Dashboard</a>
+
+<script>
+// Supabase Configuration
+const supabaseUrl = "https://ldgnyehqrharqvynohla.supabase.co";
+const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkZ255ZWhxcmhhcnF2eW5vaGxhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMzgzMDcsImV4cCI6MjA5NDYxNDMwN30.80vZuD20je-8VKDJwoy7P2mFYqY9Vcq3nMd9K-pHYBI";
+const supabaseClient = supabase.createClient(supabaseUrl, supabaseAnonKey);
+
+const MATCH_TABLE = 'chess-quick-match';
+const dbColumns = { red: 'red_coins', blue: 'blue_coins', super: 'super_coins' };
+
+let currentUser = localStorage.getItem("dusk_username");
+let selectedCoin = "red";
+
+let myRowId = null;        // id of my row in chess-quick-match
+let myRoomcode = "";       // room code I entered
+let opponentUsername = ""; // username of matched opponent
+let opponentRoomcode = ""; // room code opponent entered
+let pollInterval = null;
+
+/* Pakia salio halisi kutoka Supabase */
+async function loadLiveWallet(){
+  if(!currentUser) {
+    alert("Tafadhali nenda kalogin kwanza ili kucheza mechi!");
+    window.location.href = "login.html";
+    return;
+  }
+
+  try {
+    let { data: profile, error } = await supabaseClient
+      .from('user_profile')
+      .select('red_coins, blue_coins, super_coins')
+      .eq('username', currentUser)
+      .single();
+
+    if(error) throw error;
+
+    if(profile) {
+      document.getElementById("red").innerText = profile.red_coins || 0;
+      document.getElementById("blue").innerText = profile.blue_coins || 0;
+      document.getElementById("purple").innerText = profile.super_coins || 0;
+    }
+  } catch(err) {
+    console.error("Salio limeshindwa kupakia:", err.message);
+  }
+}
+
+/* SEARCH OPPONENT FLOW */
+async function searchOpponent(){
+  let code = document.getElementById("roomCode").value.trim();
+  selectedCoin = document.getElementById("coinType").value;
+
+  if(code === ""){
+    alert("Enter match code!");
+    return;
+  }
+  if(!currentUser){
+    alert("Please login first!");
+    window.location.href = "login.html";
+    return;
+  }
+
+  let findBtn = document.getElementById("findBtn");
+  findBtn.disabled = true;
+  findBtn.innerText = "Searching...";
+  document.getElementById("opponentBox").style.display = "none";
+
+  try {
+    // Clean up any of my own stale pending rows first
+    await supabaseClient
+      .from(MATCH_TABLE)
+      .delete()
+      .eq('username', currentUser)
+      .eq('status', 'pending');
+
+    // Look for someone else already waiting with the same coin
+    let { data: waitingRows, error: findErr } = await supabaseClient
+      .from(MATCH_TABLE)
+      .select('*')
+      .eq('coin', selectedCoin)
+      .eq('status', 'pending')
+      .neq('username', currentUser)
+      .order('created_at', { ascending: true })
+      .limit(1);
+
+    if(findErr) throw findErr;
+
+    if(waitingRows && waitingRows.length > 0){
+      // Opponent already waiting -> connect immediately
+      let opp = waitingRows[0];
+
+      let { error: updOppErr } = await supabaseClient
+        .from(MATCH_TABLE)
+        .update({
+          opponent: currentUser,
+          status: `connected to ${currentUser}`
+        })
+        .eq('id', opp.id);
+
+      if(updOppErr) throw updOppErr;
+
+      let { data: myRow, error: insErr } = await supabaseClient
+        .from(MATCH_TABLE)
+        .insert([{
+          username: currentUser,
+          roomcode: code,
+          coin: selectedCoin,
+          opponent: opp.username,
+          status: `connected to ${opp.username}`,
+          results: 'pending',
+          screenshot_url: null
+        }])
+        .select()
+        .single();
+
+      if(insErr) throw insErr;
+
+      myRowId = myRow.id;
+      myRoomcode = code;
+
+      showOpponentFound(opp.username, opp.roomcode);
+      findBtn.disabled = false;
+      findBtn.innerText = "Find Opponent";
+
+    } else {
+      // No one waiting -> register myself as pending and poll
+      let { data: myRow, error: insErr } = await supabaseClient
+        .from(MATCH_TABLE)
+        .insert([{
+          username: currentUser,
+          roomcode: code,
+          coin: selectedCoin,
+          opponent: null,
+          status: 'pending',
+          results: 'pending',
+          screenshot_url: null
+        }])
+        .select()
+        .single();
+
+      if(insErr) throw insErr;
+
+      myRowId = myRow.id;
+      myRoomcode = code;
+
+      findBtn.innerText = "Find Opponent";
+      findBtn.disabled = true;
+      document.getElementById("searchingBox").style.display = "block";
+
+      startPolling();
+    }
+  } catch(err){
+    alert("Error finding opponent: " + err.message);
+    findBtn.disabled = false;
+    findBtn.innerText = "Find Opponent";
+  }
+}
+
+/* POLL MY ROW UNTIL SOMEONE ELSE CONNECTS TO ME */
+function startPolling(){
+  if(pollInterval) clearInterval(pollInterval);
+
+  pollInterval = setInterval(async () => {
+    try {
+      let { data: row, error } = await supabaseClient
+        .from(MATCH_TABLE)
+        .select('*')
+        .eq('id', myRowId)
+        .single();
+
+      if(error) throw error;
+
+      if(row.status && row.status.startsWith('connected to') && row.opponent){
+        clearInterval(pollInterval);
+        pollInterval = null;
+
+        document.getElementById("searchingBox").style.display = "none";
+        document.getElementById("findBtn").disabled = false;
+
+        // Get the opponent's roomcode from their own row
+        let { data: oppRow } = await supabaseClient
+          .from(MATCH_TABLE)
+          .select('roomcode')
+          .eq('username', row.opponent)
+          .eq('opponent', currentUser)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        showOpponentFound(row.opponent, oppRow ? oppRow.roomcode : '');
+      }
+    } catch(e){
+      console.error("Polling error:", e.message);
+    }
+  }, 3000);
+}
+
+/* CANCEL AN IN-PROGRESS SEARCH */
+async function cancelSearch(){
+  if(pollInterval){
+    clearInterval(pollInterval);
+    pollInterval = null;
+  }
+
+  try {
+    if(myRowId){
+      await supabaseClient
+        .from(MATCH_TABLE)
+        .delete()
+        .eq('id', myRowId)
+        .eq('status', 'pending');
+    }
+  } catch(e){
+    console.error("Cancel error:", e.message);
+  }
+
+  myRowId = null;
+  document.getElementById("searchingBox").style.display = "none";
+  document.getElementById("findBtn").disabled = false;
+  document.getElementById("findBtn").innerText = "Find Opponent";
+}
+
+/* SHOW OPPONENT FOUND UI */
+function showOpponentFound(oppUsername, oppRoomcode){
+  opponentUsername = oppUsername;
+  opponentRoomcode = oppRoomcode || '';
+
+  document.getElementById("opponentName").innerText = oppUsername;
+  document.getElementById("opponentCode").innerText = opponentRoomcode;
+  document.getElementById("searchingBox").style.display = "none";
+  document.getElementById("opponentBox").style.display = "block";
+}
+
+/* ACCEPT MATCH, DEDUCT COIN LIVE, THEN ENTER GAME */
+async function acceptMatch(){
+  let startBtn = document.getElementById("startBtn");
+
+  startBtn.disabled = true;
+  startBtn.innerText = "Processing Transaction...";
+
+  try {
+    // 1. Vuta salio la hivi sasa la mtumiaji kutoka Supabase
+    let { data: profile, error } = await supabaseClient
+      .from('user_profile')
+      .select('red_coins, blue_coins, super_coins')
+      .eq('username', currentUser)
+      .single();
+
+    if (error || !profile) throw new Error("Mtumiaji hajapatikana kwenye mfumo.");
+
+    let targetCol = dbColumns[selectedCoin];
+    let currentBalance = Number(profile[targetCol] || 0);
+
+    // 2. Angalia kama ana salio la kutosha
+    if(currentBalance <= 0){
+      alert(`Huna coins za kutosha za aina ya ${selectedCoin.toUpperCase()}!`);
+      startBtn.disabled = false;
+      startBtn.innerText = "Start Game";
+      return;
+    }
+
+    // 3. Punguza coin 1 kwenye database
+    let updateData = {};
+    updateData[targetCol] = currentBalance - 1;
+
+    let { error: updateErr } = await supabaseClient
+      .from('user_profile')
+      .update(updateData)
+      .eq('username', currentUser);
+
+    if(updateErr) throw updateErr;
+
+    // 4. Sasisha status ya mechi kuwa in-progress
+    if(myRowId){
+      await supabaseClient
+        .from(MATCH_TABLE)
+        .update({ status: 'in-progress' })
+        .eq('id', myRowId);
+    }
+
+    // 5. Rekodi tukio hili live kwenye Community Chat kama Log ya mchezo
+    try {
+      await supabaseClient
+        .from('community_chat')
+        .insert([{
+            category: 'General',
+            user_name: '♟️ CHESS MATCH',
+            text: `Mchezaji [ ${currentUser} ] amezindua bodi ya Chess dhidi ya [ ${opponentUsername} ] kwenye Match Code: [ ${myRoomcode} ] kwa dau la 1 ${selectedCoin.toUpperCase()} Coin!`
+        }]);
+    } catch(e) {
+        console.log("Chat log skipped");
+    }
+
+    // 6. Ingia moja kwa moja kwenye bodi ya mchezo
+    window.location.href = `Prechees.html?room=${encodeURIComponent(myRoomcode)}&opponent=${encodeURIComponent(opponentUsername)}&coin=${encodeURIComponent(selectedCoin)}`;
+
+  } catch(err) {
+    alert("Imeshindwa kuanza mchezo: " + err.message);
+    startBtn.disabled = false;
+    startBtn.innerText = "Start Game";
+  }
+}
+
+// Safisha search yangu ikiwa mtumiaji ataondoka kwenye ukurasa bila kupata mpinzani
+window.addEventListener("beforeunload", () => {
+  if(myRowId && pollInterval){
+    navigator.sendBeacon &&
+    supabaseClient
+      .from(MATCH_TABLE)
+      .delete()
+      .eq('id', myRowId)
+      .eq('status', 'pending');
+  }
+});
+
+// Inapakia akaunti punde tu ukurasa unapofunguliwa
+window.onload = loadLiveWallet;
+</script>
+
+</body>
+</html>
