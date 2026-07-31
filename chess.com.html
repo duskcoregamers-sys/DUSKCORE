@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>DUSKCORE - Chess Hub</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="chess.com.png">
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: radial-gradient(circle at top, #150a21, #000000);
+            background-attachment: fixed;
+            color: white;
+            padding-bottom: 100px;
+        }
+
+        h1, h3 {
+            color: #a020f0;
+            text-align: center;
+            text-shadow: 0 0 15px rgba(160, 32, 240, 0.6);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .user-welcome {
+            text-align: center;
+            font-size: 14px;
+            color: #00ff88;
+            margin-top: -10px;
+            margin-bottom: 20px;
+            font-weight: bold;
+            font-family: monospace;
+        }
+
+        .hero img {
+            width: 90%;
+            max-width: 800px;
+            display: block;
+            margin: 20px auto;
+            border-radius: 15px;
+            box-shadow: 0 0 25px rgba(160, 32, 240, 0.5);
+            border: 1px solid rgba(160, 32, 240, 0.3);
+        }
+
+        .nav {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin: 25px auto;
+            flex-wrap: wrap;
+            max-width: 800px;
+            padding: 0 5%;
+        }
+
+        .nav a {
+            padding: 12px 20px;
+            border: 1px solid #a020f0;
+            border-radius: 10px;
+            color: #fff;
+            background: rgba(160, 32, 240, 0.05);
+            text-decoration: none;
+            transition: 0.3s;
+            font-size: 14px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .nav a:hover {
+            background: #a020f0;
+            color: black;
+            box-shadow: 0 0 15px #a020f0;
+            transform: translateY(-2px);
+        }
+
+        .card {
+            width: 90%;
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            border-radius: 15px;
+            background: rgba(20, 10, 30, 0.7);
+            border: 1px solid rgba(160, 32, 240, 0.4);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+            box-sizing: border-box;
+        }
+
+        .card h3 {
+            text-align: left;
+            margin-top: 0;
+            font-size: 16px;
+            border-bottom: 1px solid rgba(160, 32, 240, 0.3);
+            padding-bottom: 8px;
+        }
+
+        .card img, .card video {
+            width: 100%;
+            max-height: 300px;
+            object-fit: cover;
+            border-radius: 10px;
+            margin: 12px 0;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .card p {
+            line-height: 1.6;
+            color: #dddddd;
+            font-size: 14px;
+        }
+
+        .bottom-controls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 1000;
+        }
+
+        .btn-float {
+            padding: 12px 22px;
+            background: #a020f0;
+            color: white;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            font-size: 13px;
+            text-transform: uppercase;
+            border: 1px solid rgba(255,255,255,0.2);
+            transition: 0.3s;
+        }
+
+        .btn-float:hover {
+            background: #bc3df5;
+            transform: scale(1.05);
+        }
+        
+        .loading-text {
+            text-align: center; 
+            color: #bc3df5; 
+            font-weight: bold;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+    </style>
+</head>
+
+<body>
+
+<h3>WELCOME TO DUSKCORE - CHESS ♟️</h3>
+<div class="user-welcome" id="chessUserWelcome">player: ...</div>
+
+<div class="hero">
+    <img src="chess.com.png">
+</div>
+
+<div class="nav">
+    <a href="chessqm.html">Quick Match</a>
+    <a href="chess.com tornaments.html">Tournaments</a>
+    <a href="Chess.com league.html">Championship</a>
+    <a href="billboard.html" style="border-style: dashed; border-color: #ffcc00; color: #ffcc00;">📢 Billboard</a>
+</div>
+
+<h1>🔥 DUSK CHESS NEWS</h1>
+
+<div id="newsContainer">
+    <p class="loading-text">Inapakia habari za hivi punde kutoka Supabase...</p>
+</div>
+
+<div class="bottom-controls">
+    <a class="btn-float" href="billboard.html" style="background: #ffcc00; color: #000;">📢 Billboard</a>
+    <a class="btn-float" href="dashboard.html">📊 Dashboard</a>
+</div>
+
+<script>
+const supabaseUrl = "https://ldgnyehqrharqvynohla.supabase.co";
+const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkZ255ZWhxcmhhcnF2eW5vaGxhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMzgzMDcsImV4cCI6MjA5NDYxNDMwN30.80vZuD20je-8VKDJwoy7P2mFYqY9Vcq3nMd9K-pHYBI";
+
+const supabaseClient = supabase.createClient(supabaseUrl, supabaseAnonKey);
+let currentUser = localStorage.getItem("dusk_username");
+
+async function loadNews(){
+    if (!currentUser) {
+        alert("Tafadhali nenda kalogin kwanza ili kufikia jukwaa la Chess!");
+        window.location.href = "login.html";
+        return;
+    }
+    
+    document.getElementById("chessUserWelcome").innerText = `player: @${currentUser.toUpperCase()}`;
+    let container = document.getElementById("newsContainer");
+    let nowISO = new Date().toISOString();
+
+    try {
+        let { data: news, error } = await supabaseClient
+            .from('news')
+            .select('*')
+            .eq('category', 'chess_news')
+            .gt('expire_at', nowISO)
+            .order('expire_at', { ascending: false });
+
+        if (error) throw error;
+
+        if(!news || news.length === 0){
+            container.innerHTML = "<p style='text-align:center; opacity:0.5;'>Bado hakuna habari za Chess kwa sasa...</p>";
+            return;
+        }
+
+        container.innerHTML = "";
+
+        news.forEach(n => {
+            let div = document.createElement("div");
+            div.className = "card";
+            
+            let expiryTime = new Date(n.expire_at);
+            let minutesLeft = Math.round((expiryTime - new Date()) / 60000);
+            let expiryDisplay = minutesLeft > 60 
+                ? `${Math.round(minutesLeft/60)} hours left` 
+                : `${minutesLeft} min left`;
+
+            let mediaHtml = "";
+            if (n.image_url) {
+                if (n.image_url.match(/\.(mp4|mov|avi)$/i)) {
+                    mediaHtml = `<video controls src="${n.image_url}"></video>`;
+                } else {
+                    mediaHtml = `<img src="${n.image_url}" onerror="this.style.display='none'">`;
+                }
+            }
+
+            div.innerHTML = `
+                <h3>♟️ CHESS UPDATE</h3>
+                ${mediaHtml}
+                <p>${n.content}</p>
+                <div style="text-align: right; margin-top: 10px;">
+                    <small style="color: #ff3366; font-weight: bold; background: rgba(255,51,102,0.1); padding: 4px 8px; border-radius: 5px;">
+                      ⏱️ ${expiryDisplay}
+                    </small>
+                </div>
+            `;
+            container.appendChild(div);
+        });
+
+    } catch (error) {
+        console.error("Error:", error);
+        container.innerHTML = "<p style='text-align:center; color: #ff3366;'>Imefeli kuleta habari...</p>";
+    }
+}
+
+window.onload = loadNews;
+setInterval(loadNews, 15000);
+</script>
+
+</body>
+</html>
